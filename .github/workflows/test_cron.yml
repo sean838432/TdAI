@@ -3,7 +3,7 @@ name: Test Python Cron Trigger
 on:
   schedule:
     # 🚀 Run automatically every day at 14:45 UTC
-    - cron: '45 14 * * *'
+    - cron: '33 14 * * *'
   workflow_dispatch:
     # 🎯 Adds a manual play button in your browser for on-demand testing
 
