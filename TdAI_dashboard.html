@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TdAI Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+  <style>
+    body { background-color: #0f172a; font-family: ui-sans-serif, system-ui, sans-serif; }
+  </style>
+</head>
+<body class="p-6 md:p-12 text-slate-100">
+
+  <div class="max-w-7xl mx-auto">
+    <header class="mb-6 border-b border-slate-800 pb-6 flex flex-col md:flex-row justify-between items-center gap-4 text-center md:text-left">
+      <div>
+        <h1 class="text-3xl md:text-4xl font-black text-white tracking-tight">
+          TdAI Dashboard
+        </h1>
+        <p id="meta-timestamps" class="text-base text-slate-400 mt-3 italic font-medium tracking-wide">
+          Connecting to local repository data matrix stream...
+        </p>
+      </div>
+      
+      <div>
+        <a href="https://forms.gle/x2Wh4TcTCkkeBGbt6" target="_blank" class="inline-flex items-center gap-2 px-4 py-2.5 bg-indigo-600/10 hover:bg-indigo-600 text-indigo-400 hover:text-white font-bold text-sm rounded-xl border border-indigo-500/20 shadow-sm transition-all duration-150">
+          📋 TdAI Forecaster Survey
+        </a>
+      </div>
+    </header>
+
+    <nav class="flex flex-wrap gap-2 mb-8 border-b border-slate-800 pb-4" role="tablist">
+      <button onclick="switchTab('day1')" id="btn-day1" class="px-4 py-2.5 rounded-xl font-bold text-sm bg-indigo-600 text-white shadow-md transition-all duration-150">Day 1 Forecast</button>
+      <button onclick="switchTab('day2')" id="btn-day2" class="px-4 py-2.5 rounded-xl font-bold text-sm bg-slate-800/60 text-slate-400 border border-slate-700/40 hover:bg-slate-800 hover:text-slate-200 transition-all duration-150">Day 2 Forecast</button>
+      <button onclick="switchTab('day_minus1')" id="btn-day_minus1" class="px-4 py-2.5 rounded-xl font-bold text-sm bg-slate-800/60 text-slate-400 border border-slate-700/40 hover:bg-slate-800 hover:text-slate-200 transition-all duration-150">Day -1 Audit</button>
+      <button onclick="switchTab('day_minus2')" id="btn-day_minus2" class="px-4 py-2.5 rounded-xl font-bold text-sm bg-slate-800/60 text-slate-400 border border-slate-700/40 hover:bg-slate-800 hover:text-slate-200 transition-all duration-150">Day -2 Audit</button>
+      <button onclick="switchTab('day_minus3')" id="btn-day_minus3" class="px-4 py-2.5 rounded-xl font-bold text-sm bg-slate-800/60 text-slate-400 border border-slate-700/40 hover:bg-slate-800 hover:text-slate-200 transition-all duration-150">Day -3 Audit</button>
+      <button onclick="switchTab('day_minus4')" id="btn-day_minus4" class="px-4 py-2.5 rounded-xl font-bold text-sm bg-slate-800/60 text-slate-400 border border-slate-700/40 hover:bg-slate-800 hover:text-slate-200 transition-all duration-150">Day -4 Audit</button>
+      <button onclick="switchTab('day_minus5')" id="btn-day_minus5" class="px-4 py-2.5 rounded-xl font-bold text-sm bg-slate-800/60 text-slate-400 border border-slate-700/40 hover:bg-slate-800 hover:text-slate-200 transition-all duration-150">Day -5 Audit</button>
+    </nav>
+
+    <div id="error-banner" class="hidden mb-8 p-5 bg-red-950/40 border-l-4 border-red-500 text-red-300 font-medium rounded-lg shadow-md border border-red-900/30"></div>
+
+    <main class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+      
+      <div id="card-KCAR" class="bg-slate-800 rounded-2xl shadow-xl border border-slate-700/60 overflow-hidden transition-all duration-300 flex flex-col justify-between">
+        <div>
+          <div class="bg-slate-900 px-6 py-4 border-b border-slate-700/50 text-white font-extrabold text-lg tracking-wide flex justify-between items-center">
+            <span class="flex items-center gap-2">
+              <span class="text-2xl font-black text-white">KCAR</span> 
+            </span>
+          </div>
+          
+          <div class="p-6 space-y-5">
+            <div id="kcar-data-view" class="space-y-5">
+              <div class="text-slate-400 text-base font-medium bg-slate-900/30 p-4 rounded-xl border border-slate-700/30">
+                <span class="block text-[11px] uppercase text-slate-500 calendar font-black tracking-widest mb-1">NBM Baseline</span>
+                <div class="text-slate-300 font-bold text-xl">
+                  <span id="kcar-nbm-dew">--.-°F</span>
+                  <span class="text-slate-600 mx-2 font-normal">/</span>
+                  <span id="kcar-nbm-rh" class="text-slate-400 text-lg">--% RH</span>
+                </div>
+              </div>
+              
+              <div class="bg-slate-900/40 p-4 rounded-xl border border-slate-700/30 flex justify-between items-center">
+                <div>
+                  <span class="block text-[11px] uppercase text-indigo-400 font-black tracking-widest mb-1">TdAI Adjusted</span>
+                  <div class="text-white font-black text-2xl tracking-tight">
+                    <span id="kcar-tdai-dew">--.-°F</span>
+                    <span class="text-indigo-500 font-normal text-lg mx-1.5">/</span>
+                    <span id="kcar-tdai-rh" class="text-indigo-200 font-bold text-xl">--% RH</span>
+                  </div>
+                </div>
+                <div id="kcar-badge" class="px-3 py-1.5 rounded-lg text-center font-black text-sm border min-w-[75px] bg-slate-900 text-slate-400 border-slate-700">
+                  --.-°F
+                </div>
+              </div>
+
+              <div id="kcar-verification-panel" class="hidden bg-indigo-950/20 border border-indigo-500/20 rounded-xl p-4 space-y-3">
+                <span class="block text-[11px] uppercase text-indigo-400 font-black tracking-widest border-b border-indigo-900/40 pb-1">ASOS Verification Metrics</span>
+                <div class="grid grid-cols-2 gap-3 text-sm">
+                  <div>
+                    <span class="text-slate-500 text-xs block">ASOS Ground Truth:</span>
+                    <span id="v-asos-dew" class="font-bold text-white text-base">--.-°F</span>
+                  </div>
+                  <div>
+                    <span class="text-slate-500 text-xs block">TdAI Skill Score:</span>
+                    <span id="v-skill-score" class="font-extrabold text-base">--.-%</span>
+                  </div>
+                  <div>
+                    <span class="text-slate-500 text-xs block">Original NBM Error:</span>
+                    <span id="v-nbm-err" class="font-medium text-slate-300">--.-°F</span>
+                  </div>
+                  <div>
+                    <span class="text-slate-500 text-xs block">Post TdAI Error:</span>
+                    <span id="v-tdai-err" class="font-medium text-slate-300">--.-°F</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div id="kcar-empty-view" class="hidden py-12 text-center text-slate-500 italic text-sm">
+              No dataset record matching this target verification day window was found in the GitHub repository database log.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-slate-800/10 rounded-2xl border-2 border-dashed border-slate-800 p-8 flex flex-col justify-center items-center text-center opacity-30 min-h-[260px]">
+        <div class="text-slate-600 font-black text-xl tracking-wider">K40B</div>
+        <div class="text-xs font-bold text-slate-600 uppercase tracking-widest mt-2 bg-slate-900/30 px-3 py-1 rounded-md border border-slate-800/30">Coming Soon</div>
+      </div>
+
+      <div class="bg-slate-800/10 rounded-2xl border-2 border-dashed border-slate-800 p-8 flex flex-col justify-center items-center text-center opacity-30 min-h-[260px]">
+        <div class="text-slate-600 font-black text-xl tracking-wider">KGNR</div>
+        <div class="text-xs font-bold text-slate-600 uppercase tracking-widest mt-2 bg-slate-900/30 px-3 py-1 rounded-md border border-slate-800/30">Coming Soon</div>
+      </div>
+
+      <div class="bg-slate-800/10 rounded-2xl border-2 border-dashed border-slate-800 p-8 flex flex-col justify-center items-center text-center opacity-30 min-h-[260px]">
+        <div class="text-slate-600 font-black text-xl tracking-wider">KMLT</div>
+        <div class="text-xs font-bold text-slate-600 uppercase tracking-widest mt-2 bg-slate-900/30 px-3 py-1 rounded-md border border-slate-800/30">Coming Soon</div>
+      </div>
+
+      <div class="bg-slate-800/10 rounded-2xl border-2 border-dashed border-slate-800 p-8 flex flex-col justify-center items-center text-center opacity-30 min-h-[260px]">
+        <div class="text-slate-600 font-black text-xl tracking-wider">KBGR</div>
+        <div class="text-xs font-bold text-slate-600 uppercase tracking-widest mt-2 bg-slate-900/30 px-3 py-1 rounded-md border border-slate-800/30">Coming Soon</div>
+      </div>
+
+      <div class="bg-slate-800/10 rounded-2xl border-2 border-dashed border-slate-800 p-8 flex flex-col justify-center items-center text-center opacity-30 min-h-[260px]">
+        <div class="text-slate-600 font-black text-xl tracking-wider">KBHB</div>
+        <div class="text-xs font-bold text-slate-600 uppercase tracking-widest mt-2 bg-slate-900/30 px-3 py-1 rounded-md border border-slate-800/30">Coming Soon</div>
+      </div>
+
+    </main>
+  </div>
+
+  <script>
+    let globalTabsDataset = null;
+    let currentTabActive = "day1";
+
+    // Trigger explicit fetch layout immediately upon resource assembly stabilization
+    window.addEventListener('DOMContentLoaded', () => {
+      fetchDashboardDataFromCSV();
+    });
+
+    /**
+     * 🛰️ REPLACES CODE.GS: Asynchronously streams, parses, and formats the local CSV logs
+     */
+    function fetchDashboardDataFromCSV() {
+      // Fetch the log file sitting right next to this index.html file in the repo
+      fetch('./operational_log.csv', { cache: "no-store" })
+        .then(response => {
+          if (!response.ok) {
+            throw new Error("Operational Failure: Could not locate 'operational_log.csv' database file inside the repository.");
+          }
+          return response.text();
+        })
+        .then(csvText => {
+          parseAndInitializePayload(csvText);
+        })
+        .catch(error => {
+          handleCriticalError(error.message);
+        });
+    }
+
+    /**
+     * Transforms raw CSV text metrics into a synchronized dictionary partitioned by tab timelines
+     */
+    function parseAndInitializePayload(text) {
+      const lines = text.trim().split('\n');
+      if (lines.length < 2) {
+        handleCriticalError("Standby: Local repository data ledger is currently empty or unformatted.");
+        return;
+      }
+
+      // Read and split headers row
+      const headers = parseCSVLine(lines[0]);
+      
+      const idxValidTime = headers.indexOf('valid_time');
+      const idxNbmTemp   = headers.indexOf('NBM Temperature (F)');
+      const idxNbmDew    = headers.indexOf('NBM Dewpoint (F)');
+      const idxNbmRh     = headers.indexOf('NBM RH (%)');
+      const idxTdaiDew   = headers.indexOf('TdAI Corrected Dewpoint (F)');
+      const idxRunTime   = headers.indexOf('TdAI Run Time (UTC)');
+      const idxAsosDew   = headers.indexOf('ASOS Ground Truth Dewpoint (F)');
+      const idxNbmErr    = headers.indexOf('Raw NBM Error (F)');
+      const idxTdaiErr   = headers.indexOf('Post TdAI Error (F)');
+      const idxSkill     = headers.indexOf('TdAI Skill Score (%)');
+
+      // Sync calendar limits strictly using the UTC time axis
+      const now = new Date();
+      const todayMidnight = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+
+      const tabDataMap = {
+        'day1': null, 'day2': null, 'day_minus1': null, 
+        'day_minus2': null, 'day_minus3': null, 'day_minus4': null, 'day_minus5': null
+      };
+
+      // Loop from bottom to top to map chronological entries
+      for (let i = lines.length - 1; i >= 1; i--) {
+        if (!lines[i].trim()) continue;
+        const row = parseCSVLine(lines[i]);
+        const rowValidTimeStr = row[idxValidTime];
+        if (!rowValidTimeStr) continue;
+
+        // Clean string characters and build uniform datetime stamps
+        const cleanTimeStr = rowValidTimeStr.replace(/"/g, '').trim();
+        const datePart = cleanTimeStr.split(' ')[0]; // Extract YYYY-MM-DD
+        const timePart = cleanTimeStr.split(' ')[1] || "00:00:00";
+        const dateParts = datePart.split('-');
+        const timeParts = timePart.split(':');
+
+        const validDate = new Date(Date.UTC(
+          parseInt(dateParts[0]),
+          parseInt(dateParts[1]) - 1,
+          parseInt(dateParts[2]),
+          parseInt(timeParts[0] || 0),
+          parseInt(timeParts[1] || 0),
+          parseInt(timeParts[2] || 0)
+        ));
+
+        const rowMidnight = new Date(Date.UTC(validDate.getUTCFullYear(), validDate.getUTCMonth(), validDate.getUTCDate()));
+        
+        // Calculate relative offset metrics
+        const timeDiff = rowMidnight.getTime() - todayMidnight.getTime();
+        const dayDelta = Math.round(timeDiff / (1000 * 60 * 60 * 24));
+
+        let tabKey = null;
+        if (dayDelta === 0) tabKey = 'day1';
+        else if (dayDelta === 1) tabKey = 'day2';
+        else if (dayDelta === -1) tabKey = 'day_minus1';
+        else if (dayDelta === -2) tabKey = 'day_minus2';
+        else if (dayDelta === -3) tabKey = 'day_minus3';
+        else if (dayDelta === -4) tabKey = 'day_minus4';
+        else if (dayDelta === -5) tabKey = 'day_minus5';
+
+        if (tabKey && !tabDataMap[tabKey]) {
+          const nbmTemp = parseFloat(row[idxNbmTemp]);
+          const nbmDew  = parseFloat(row[idxNbmDew]);
+          const nbmRh   = parseFloat(row[idxNbmRh]);
+          const tdaiDew = parseFloat(row[idxTdaiDew]);
+          
+          if (isNaN(nbmTemp) || isNaN(tdaiDew)) continue;
+
+          // Standard multi-level relative humidity calculation (August-Roche-Magnus formula)
+          const tc = (nbmTemp - 32) * (5.0 / 9.0);
+          const tdc = (tdaiDew - 32) * (5.0 / 9.0);
+          const es = 6.112 * Math.exp((17.67 * tc) / (tc + 243.5));
+          const e = 6.112 * Math.exp((17.67 * tdc) / (tdc + 243.5));
+          const tdaiRh = Math.min(Math.max((e / es) * 100, 0.0), 100.0);
+          const delta = tdaiDew - nbmDew;
+
+          const rowRunTimeStr = row[idxRunTime] ? row[idxRunTime].replace(/"/g, '').trim() : "N/A";
+
+          // Safely extract verification variables, filtering empty or blank fields
+          const hasAsos = row[idxAsosDew] !== "" && row[idxAsosDew] !== undefined && row[idxAsosDew] !== null && !isNaN(parseFloat(row[idxAsosDew]));
+          const asosDew = hasAsos ? parseFloat(row[idxAsosDew]) : null;
+          const nbmErr  = (row[idxNbmErr] !== "" && row[idxNbmErr] !== undefined) ? parseFloat(row[idxNbmErr]) : null;
+          const tdaiErr = (row[idxTdaiErr] !== "" && row[idxTdaiErr] !== undefined) ? parseFloat(row[idxTdaiErr]) : null;
+          const skill   = (row[idxSkill] !== "" && row[idxSkill] !== undefined) ? parseFloat(row[idxSkill]) : null;
+
+          tabDataMap[tabKey] = {
+            validTimeStr: cleanTimeStr.substring(0, 16),
+            runTimeStr: rowRunTimeStr,
+            nbmDew: nbmDew.toFixed(1),
+            nbmRh: nbmRh.toFixed(0),
+            tdaiDew: tdaiDew.toFixed(1),
+            tdaiRh: tdaiRh.toFixed(0),
+            delta: delta.toFixed(1),
+            deltaValue: delta,
+            isVerified: hasAsos,
+            verification: {
+              asosDew: hasAsos ? asosDew.toFixed(1) : null,
+              nbmErr: (nbmErr !== null && !isNaN(nbmErr)) ? nbmErr.toFixed(1) : null,
+              tdaiErr: (tdaiErr !== null && !isNaN(tdaiErr)) ? tdaiErr.toFixed(1) : null,
+              skillScore: (skill !== null && !isNaN(skill)) ? skill.toFixed(1) : null
+            }
+          };
+        }
+      }
+
+      globalTabsDataset = tabDataMap;
+      switchTab(currentTabActive);
+    }
+
+    /**
+     * CSV helper utility function that properly slices row tokens while ignoring internal comma configurations
+     */
+    function parseCSVLine(line) {
+      let arr = [];
+      let quote = false;
+      let str = '';
+      for (let i = 0; i < line.length; i++) {
+        let ch = line[i];
+        if (ch === '"') quote = !quote;
+        else if (ch === ',' && !quote) {
+          arr.push(str.trim());
+          str = '';
+        } else str += ch;
+      }
+      arr.push(str.trim());
+      return arr;
+    }
+
+    /**
+     * Toggles layout styles and updates responsive elements across components
+     */
+    function switchTab(tabKey) {
+      currentTabActive = tabKey;
+      if (!globalTabsDataset) return;
+
+      const tabButtons = document.querySelectorAll('nav button');
+      tabButtons.forEach(btn => {
+        if (btn.id === `btn-${tabKey}`) {
+          btn.className = "px-4 py-2.5 rounded-xl font-bold text-sm bg-indigo-600 text-white shadow-md transition-all duration-150";
+        } else {
+          btn.className = "px-4 py-2.5 rounded-xl font-bold text-sm bg-slate-800/60 text-slate-400 border border-slate-700/40 hover:bg-slate-800 hover:text-slate-200 transition-all duration-150";
+        }
+      });
+
+      const data = globalTabsDataset[tabKey];
+      const dataView = document.getElementById('kcar-data-view');
+      const emptyView = document.getElementById('kcar-empty-view');
+      const metaRow = document.getElementById('meta-timestamps');
+
+      if (!data) {
+        dataView.classList.add('hidden');
+        emptyView.classList.remove('hidden');
+        metaRow.innerHTML = `Target Window: <span class="text-rose-400 font-bold">No Forecast Row In Sync Yet</span>`;
+        return;
+      }
+
+      dataView.classList.remove('hidden');
+      emptyView.classList.add('hidden');
+
+      metaRow.innerHTML = 
+        `Verification Target Window: <span class="text-indigo-400 font-bold">${data.validTimeStr} UTC</span> &nbsp;|&nbsp; Latest Model Run: <span class="text-slate-200 font-bold">${data.runTimeStr}</span>`;
+
+      document.getElementById('kcar-nbm-dew').innerText = data.nbmDew + "°F";
+      document.getElementById('kcar-nbm-rh').innerText = data.nbmRh + "% RH";
+      document.getElementById('kcar-tdai-dew').innerText = data.tdaiDew + "°F";
+      document.getElementById('kcar-tdai-rh').innerText = data.tdaiRh + "% RH";
+
+      const badge = document.getElementById('kcar-badge');
+      const delta = data.deltaValue;
+      badge.innerText = (delta >= 0 ? "+" : "") + data.delta + "°F";
+      
+      const baseBadgeStyle = "px-3 py-1.5 rounded-lg text-center font-black text-sm border min-w-[75px] ";
+      
+      if (delta >= 0) {
+        badge.className = baseBadgeStyle + "bg-emerald-950/50 text-emerald-400 border-emerald-800/40";
+      } else {
+        badge.className = baseBadgeStyle + "bg-[#3e2723]/75 text-[#a1887f] border-[#5d4037]/40";
+      }
+
+      const vPanel = document.getElementById('kcar-verification-panel');
+      if (data.isVerified) {
+        vPanel.classList.remove('hidden');
+        
+        document.getElementById('v-asos-dew').innerText = data.verification.asosDew + "°F";
+        
+        const nbmErr = parseFloat(data.verification.nbmErr);
+        const tdaiErr = parseFloat(data.verification.tdaiErr);
+        document.getElementById('v-nbm-err').innerText = (nbmErr >= 0 ? "+" : "") + data.verification.nbmErr + "°F";
+        document.getElementById('v-tdai-err').innerText = (tdaiErr >= 0 ? "+" : "") + data.verification.tdaiErr + "°F";
+        
+        const skillScore = parseFloat(data.verification.skillScore);
+        const skillNode = document.getElementById('v-skill-score');
+        skillNode.innerText = (skillScore >= 0 ? "+" : "") + data.verification.skillScore + "%";
+        
+        if (skillScore > 0) {
+          skillNode.className = "font-black text-base text-emerald-400"; 
+        } else if (skillScore === 0) {
+          skillNode.className = "font-black text-base text-slate-400";   
+        } else {
+          skillNode.className = "font-black text-base text-rose-400";    
+        }
+      } else {
+        vPanel.classList.add('hidden');
+      }
+    }
+
+    function handleCriticalError(errorMsg) {
+      const banner = document.getElementById('error-banner');
+      banner.innerText = errorMsg;
+      banner.classList.remove('hidden');
+    }
+  </script>
+</body>
+</html>
