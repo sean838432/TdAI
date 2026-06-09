@@ -2,44 +2,38 @@ name: TdAI Production Core Automation
 
 on:
   schedule:
-    # 🚀 Triggers daily at 14:45 UTC (Buffer time for 12z HRRR & 13z NBM uploads)
     - cron: '45 14 * * *'
   workflow_dispatch:
-    # 🎯 Enables manual dashboard override triggering
 
 jobs:
   run-pipeline:
     runs-on: ubuntu-latest
-    
-    # Give the virtual runner explicit permissions to rewrite the CSV data inside your repository
     permissions:
       contents: write
-      
     steps:
-    - name: Checkout Repository Code
-      uses: actions/checkout@v4
+      - name: Checkout Repository Code
+        uses: actions/checkout@v4
 
-    - name: Set Up Python Environment
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.12'
-        cache: 'pip'
+      - name: Set Up Python Environment
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
 
-    - name: Install System GRIB Unpacking Drivers
-      # These system tools are required to decompress binary NOAA GRIB2 model soundings
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y libeccodes-dev eccodes
+      - name: Install System GRIB Unpacking Drivers
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libeccodes-dev eccodes
 
-    - name: Install Python Science Libraries
-      run: |
-        pip install numpy pandas xarray cfgrib gspread joblib requests scikit-learn
+      - name: Install Python Science Libraries
+        run: |
+          pip install numpy pandas xarray cfgrib joblib requests scikit-learn
 
-    - name: Execute TdAI Model Ingestion & Verification
-      run: python tdai_operational_pipeline.py
+      - name: Execute TdAI Model Ingestion & Verification
+        run: python tdai_operational_pipeline.py
 
-    - name: Commit and Push Updated CSV Ledger Back to Repository
-      uses: stefanzweifel/git-auto-commit-action@v5
-      with:
-        commit_message: "Automated Data Update: TdAI Core Matrix Appended"
-        file_pattern: "operational_log.csv"
+      - name: Commit and Push Updated CSV Ledger Back to Repository
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "Automated Data Update: TdAI Core Matrix Appended"
+          file_pattern: "operational_log.csv"
