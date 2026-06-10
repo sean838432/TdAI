@@ -1,0 +1,7 @@
+numpy
+pandas
+xarray
+cfgrib
+joblib
+requests
+scikit-learn
