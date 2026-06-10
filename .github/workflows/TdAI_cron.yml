@@ -21,9 +21,12 @@ jobs:
           cache: 'pip'
 
       - name: Install System GRIB Unpacking Drivers
+        # 🚀 Fixes Exit Code 100 by adding a defensive retry mechanism for apt-get
         run: |
           sudo apt-get update
-          sudo apt-get install -y libeccodes-dev eccodes
+          for i in {1..5}; do
+            sudo apt-get install -y libeccodes-dev eccodes && break || sleep 15;
+          done
 
       - name: Install Python Science Libraries
         run: |
