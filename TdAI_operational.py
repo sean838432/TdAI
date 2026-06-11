@@ -17,22 +17,6 @@ import xarray as xr
 import joblib
 import pickle
 
-# 🛠️ Defensive patch forcing backward compatibility for legacy NumPy BitGenerators
-import numpy.random._pickle
-from numpy.random._pcg64 import PCG64
-
-def patched_bit_generator_ctor(bit_generator_name):
-    try:
-        return numpy.random._pickle.__original_bit_generator_ctor(bit_generator_name)
-    except ValueError:
-        if "PCG64" in str(bit_generator_name):
-            return PCG64
-        raise
-
-if not hasattr(numpy.random._pickle, '__original_bit_generator_ctor'):
-    numpy.random._pickle.__original_bit_generator_ctor = numpy.random._pickle.__bit_generator_ctor
-    numpy.random._pickle.__bit_generator_ctor = patched_bit_generator_ctor
-
 def seed_everything(seed=42):
     """Locks random states to enforce analytical reproducibility across iterations."""
     random.seed(seed)
