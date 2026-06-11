@@ -21,7 +21,7 @@ jobs:
           cache: 'pip'
 
       - name: Install System GRIB Unpacking Drivers
-        # 🚀 Fixes Exit Code 100 by adding a defensive retry mechanism for apt-get
+        # Fixes Exit Code 100 by adding a defensive retry mechanism for apt-get
         run: |
           sudo apt-get update
           for i in {1..5}; do
@@ -29,9 +29,10 @@ jobs:
           done
 
       - name: Install Python Science Libraries
+        # Forces pip to read your specific version rules from requirements.txt
         run: |
-          pip install numpy pandas xarray cfgrib joblib requests scikit-learn
-
+          pip install -r requirements.txt
+          
       - name: Execute TdAI Model Ingestion & Verification
         run: python TdAI_operational.py
 
