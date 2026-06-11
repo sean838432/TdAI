@@ -18,7 +18,6 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.11' # originally 3.12
-          cache: 'pip'
 
       - name: Install System GRIB Unpacking Drivers
         # Fixes Exit Code 100 by adding a defensive retry mechanism for apt-get
