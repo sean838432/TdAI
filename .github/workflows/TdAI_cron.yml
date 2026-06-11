@@ -33,7 +33,7 @@ jobs:
           pip install numpy pandas xarray cfgrib joblib requests scikit-learn
 
       - name: Execute TdAI Model Ingestion & Verification
-        run: python tdai_operational_pipeline.py
+        run: python TdAI_operational.py
 
       - name: Commit and Push Updated CSV Ledger Back to Repository
         uses: stefanzweifel/git-auto-commit-action@v5
