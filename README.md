@@ -46,5 +46,6 @@ STILL TO DO:
 1) Set up an operational filter that runs the model only on fire weather days (i.e. T > 50 F, RH < 50 %, Sky < 60%)
 2) Improve the dashboard to include verification statistics
 3) Tweak feature variables - Remove Td and add HRRR soil moisture
-4) Add a probabilistic distribution to TdAI using an ensemble of quantile mapping runs (i.e. 10th, 25th, 50th, 75th, 90th
-5) Train the model on more ASOS sites
+4) Train & run the model on 00z HRRR runs so TdAI runs with the 13z and 01z NBM crons
+5) Add a probabilistic distribution to TdAI using an ensemble of quantile mapping runs (i.e. 10th, 25th, 50th, 75th, 90th
+6) Train the model on more ASOS sites (KBHB, KBGR, KGNR, KMLT, K40B)
