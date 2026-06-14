@@ -1,8 +1,6 @@
 name: TdAI Production Core Automation
 
 on:
-  schedule:
-    - cron: '45 14 * * *'
   workflow_dispatch:
 
 jobs:
