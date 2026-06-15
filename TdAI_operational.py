@@ -320,65 +320,49 @@ def main():
         }
         new_rows_list.append(log_row)
 
+    # -------------------------------------------------------------------------
+    # 🔄 ATOMIC OVERWRITE & DEDUPLICATION LOGIC
+    # -------------------------------------------------------------------------
     if new_rows_list:
         new_entry_df = pd.DataFrame(new_rows_list)
+        new_entry_df['valid_time'] = pd.to_datetime(new_entry_df['valid_time']).dt.strftime('%Y-%m-%d %H:%M:%S')
+        
+        if not combined_log_df.empty:
+            combined_log_df['valid_time'] = pd.to_datetime(combined_log_df['valid_time'], errors='coerce').dt.strftime('%Y-%m-%d %H:%M:%S')
+            
+            # 🛡️ SECURITY CHECK: If an old row exists for this valid_time, pull forward its ASOS data
+            # This ensures that manually forced reruns don't erase yesterday's successful validations.
+            for target_vtime in new_entry_df['valid_time']:
+                existing_match = combined_log_df[combined_log_df['valid_time'] == target_vtime]
+                if not existing_match.empty:
+                    old_asos = existing_match['ASOS Ground Truth Dewpoint (F)'].iloc[0]
+                    # If we already have real ground-truth data, preserve it in the fresh row
+                    if pd.notna(old_asos):
+                        print(f"♻️ Preserving historical ASOS verification data found for {target_vtime}")
+                        new_entry_df.loc[new_entry_df['valid_time'] == target_vtime, 'ASOS Ground Truth Dewpoint (F)'] = old_asos
+                        
+                        # Re-calculate the errors instantly for the updated forecast values
+                        r_nbm_err = new_entry_df.loc[new_entry_df['valid_time'] == target_vtime, 'NBM Dewpoint (F)'].values[0] - old_asos
+                        p_tdai_err = new_entry_df.loc[new_entry_df['valid_time'] == target_vtime, 'TdAI Corrected Dewpoint (F)'].values[0] - old_asos
+                        skill_score = (1.0 - (abs(p_tdai_err) / abs(r_nbm_err))) * 100 if abs(r_nbm_err) > 0 else 0.0
+                        
+                        new_entry_df.loc[new_entry_df['valid_time'] == target_vtime, 'Raw NBM Error (F)'] = round(r_nbm_err, 2)
+                        new_entry_df.loc[new_entry_df['valid_time'] == target_vtime, 'Post TdAI Error (F)'] = round(p_tdai_err, 2)
+                        new_entry_df.loc[new_entry_df['valid_time'] == target_vtime, 'TdAI Skill Score (%)'] = round(skill_score, 1)
+
+            # ✂️ PURGE: Delete any existing rows matching the target valid_times to prevent stacking
+            target_valid_times = new_entry_df['valid_time'].tolist()
+            combined_log_df = combined_log_df[~combined_log_df['valid_time'].isin(target_valid_times)]
+
+        # Append the clean, updated row to the ledger
         combined_log_df = pd.concat([combined_log_df, new_entry_df], ignore_index=True)
 
-    # Enforce safe timestamp casting for evaluation loops
+    # Enforce chronological ordering so your web dashboard graphs map smoothly
     combined_log_df['valid_time'] = pd.to_datetime(combined_log_df['valid_time']).dt.strftime('%Y-%m-%d %H:%M:%S')
+    combined_log_df = combined_log_df.sort_values(by='valid_time').reset_index(drop=True)
     combined_log_df_dt = pd.to_datetime(combined_log_df['valid_time'])
 
-    # 🔄 LOOP: Retrospectively scan and fill ALL missing ASOS observations
-    missing_mask = combined_log_df['ASOS Ground Truth Dewpoint (F)'].isna() & (combined_log_df_dt + datetime.timedelta(minutes=15) <= current_time_utc)
-    missing_indices = combined_log_df[missing_mask].index
-
-    if len(missing_indices) > 0:
-        print(f"🔄 Found {len(missing_indices)} historical rows awaiting verification...")
-        
-        for idx in missing_indices:
-            v_time = pd.to_datetime(combined_log_df.loc[idx, 'valid_time'])
-            print(f"   └── Requesting ASOS Ground Truth observation for: {v_time.strftime('%Y-%m-%d %H:%M UTC')}")
-            
-            # Formulate query bounds to isolate the target verification hour
-            start_date = v_time - datetime.timedelta(days=1)
-            end_date = v_time + datetime.timedelta(days=1)
-            asos_url = f"https://mesonet.agron.iastate.edu/cgi-bin/request/asos.py?station=CAR&data=dwpf&year1={start_date.year}&month1={start_date.month}&day1={start_date.day}&year2={end_date.year}&month2={end_date.month}&day2={end_date.day}&tz=UTC&format=comma"
-            
-            try:
-                res = requests.get(asos_url, timeout=20)
-                if res.status_code == 200:
-                    asos_df = pd.read_csv(io.StringIO(res.text), comment='#')
-                    if not asos_df.empty and 'dwpf' in asos_df.columns:
-                        asos_df['valid_dt'] = pd.to_datetime(asos_df['valid'])
-                        asos_df['rounded_valid_time'] = asos_df['valid_dt'].dt.round('h')
-                        
-                        target_obs = asos_df[asos_df['rounded_valid_time'] == v_time].copy()
-                        target_obs['dwpf_numeric'] = pd.to_numeric(target_obs['dwpf'], errors='coerce')
-                        valid_reports = target_obs.dropna(subset=['dwpf_numeric'])
-                        
-                        if not valid_reports.empty:
-                            asos_gt = valid_reports['dwpf_numeric'].iloc[0]
-                            r_nbm_err = combined_log_df.loc[idx, 'NBM Dewpoint (F)'] - asos_gt
-                            p_tdai_err = combined_log_df.loc[idx, 'TdAI Corrected Dewpoint (F)'] - asos_gt
-                            
-                            # Meteorological Skill Score formulation against baseline NBM error profile
-                            skill_score = (1.0 - (abs(p_tdai_err) / abs(r_nbm_err))) * 100 if abs(r_nbm_err) > 0 else 0.0
-                            
-                            # Lock metric entries into historical cell locations
-                            combined_log_df.loc[idx, 'ASOS Ground Truth Dewpoint (F)'] = asos_gt
-                            combined_log_df.loc[idx, 'Raw NBM Error (F)'] = round(r_nbm_err, 2)
-                            combined_log_df.loc[idx, 'Post TdAI Error (F)'] = round(p_tdai_err, 2)
-                            combined_log_df.loc[idx, 'TdAI Skill Score (%)'] = round(skill_score, 1)
-                            print(f"       ✅ Successfully validated! ASOS: {asos_gt}F | Skill Score: {round(skill_score, 1)}%")
-                        else:
-                            print("       ⚠️ Observation not published on server registry yet.")
-            except Exception as e:
-                print(f"       ❌ Verification network latency exception: {e}")
-
-    # Deduplicate row logs to secure atomic database transactions
-    combined_log_df = combined_log_df.drop_duplicates(subset=['valid_time', 'TdAI Run Time (UTC)'], keep='last')
-    
-    # Save back to local directory tracking file
+    # 💾 SAVE STEP: Write directly back to local repository file ledger
     combined_log_df.to_csv(output_csv_path, index=False)
     print(f"💾 File Ledger synchronizations successfully finalized. Total database entries: {len(combined_log_df)}")
 
