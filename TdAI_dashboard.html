@@ -99,7 +99,7 @@
               </div>
             </div>
 
-            <div id="kcar-empty-view" class="hidden py-12 text-center text-slate-500 italic text-sm">
+            <div id="kcar-empty-view" class="hidden py-12 text-center text-slate-400 font-bold italic text-sm bg-slate-900/20 border border-slate-800/60 rounded-xl">
               No Data Available
             </div>
           </div>
@@ -147,7 +147,6 @@
      * 🛰️ REPLACES CODE.GS: Asynchronously streams, parses, and formats the local CSV logs
      */
     function fetchDashboardDataFromCSV() {
-      // Fetch the log file sitting right next to this index.html file in the repo
       fetch('./operational_log.csv', { cache: "no-store" })
         .then(response => {
           if (!response.ok) {
@@ -173,10 +172,10 @@
         return;
       }
 
-      // Read and split headers row
       const headers = parseCSVLine(lines[0]);
       
       const idxValidTime = headers.indexOf('valid_time');
+      const idxTdaiStatus = headers.indexOf('TdAI Status');  // 🚀 Maps the fresh reason tracking index
       const idxNbmTemp   = headers.indexOf('NBM Temperature (F)');
       const idxNbmDew    = headers.indexOf('NBM Dewpoint (F)');
       const idxNbmRh     = headers.indexOf('NBM RH (%)');
@@ -187,7 +186,6 @@
       const idxTdaiErr   = headers.indexOf('Post TdAI Error (F)');
       const idxSkill     = headers.indexOf('TdAI Skill Score (%)');
 
-      // Sync calendar limits strictly using the UTC time axis
       const now = new Date();
       const todayMidnight = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
 
@@ -196,16 +194,14 @@
         'day_minus2': null, 'day_minus3': null, 'day_minus4': null, 'day_minus5': null
       };
 
-      // Loop from bottom to top to map chronological entries
       for (let i = lines.length - 1; i >= 1; i--) {
         if (!lines[i].trim()) continue;
         const row = parseCSVLine(lines[i]);
         const rowValidTimeStr = row[idxValidTime];
         if (!rowValidTimeStr) continue;
 
-        // Clean string characters and build uniform datetime stamps
         const cleanTimeStr = rowValidTimeStr.replace(/"/g, '').trim();
-        const datePart = cleanTimeStr.split(' ')[0]; // Extract YYYY-MM-DD
+        const datePart = cleanTimeStr.split(' ')[0];
         const timePart = cleanTimeStr.split(' ')[1] || "00:00:00";
         const dateParts = datePart.split('-');
         const timeParts = timePart.split(':');
@@ -221,7 +217,6 @@
 
         const rowMidnight = new Date(Date.UTC(validDate.getUTCFullYear(), validDate.getUTCMonth(), validDate.getUTCDate()));
         
-        // Calculate relative offset metrics
         const timeDiff = rowMidnight.getTime() - todayMidnight.getTime();
         const dayDelta = Math.round(timeDiff / (1000 * 60 * 60 * 24));
 
@@ -235,47 +230,59 @@
         else if (dayDelta === -5) tabKey = 'day_minus5';
 
         if (tabKey && !tabDataMap[tabKey]) {
+          // 🛑 THRESHOLD BYPASS EXTRACTION: Extract status string cell contents safely
+          const statusText = (idxTdaiStatus !== -1 && row[idxTdaiStatus]) ? row[idxTdaiStatus].replace(/"/g, '').trim() : "Active";
+          const isBypassed = statusText.includes("Bypassed");
+
           const nbmTemp = parseFloat(row[idxNbmTemp]);
           const nbmDew  = parseFloat(row[idxNbmDew]);
           const nbmRh   = parseFloat(row[idxNbmRh]);
           const tdaiDew = parseFloat(row[idxTdaiDew]);
-          
-          if (isNaN(nbmTemp) || isNaN(tdaiDew)) continue;
-
-          // Standard multi-level relative humidity calculation (August-Roche-Magnus formula)
-          const tc = (nbmTemp - 32) * (5.0 / 9.0);
-          const tdc = (tdaiDew - 32) * (5.0 / 9.0);
-          const es = 6.112 * Math.exp((17.67 * tc) / (tc + 243.5));
-          const e = 6.112 * Math.exp((17.67 * tdc) / (tdc + 243.5));
-          const tdaiRh = Math.min(Math.max((e / es) * 100, 0.0), 100.0);
-          const delta = tdaiDew - nbmDew;
-
           const rowRunTimeStr = row[idxRunTime] ? row[idxRunTime].replace(/"/g, '').trim() : "N/A";
 
-          // Safely extract verification variables, filtering empty or blank fields
-          const hasAsos = row[idxAsosDew] !== "" && row[idxAsosDew] !== undefined && row[idxAsosDew] !== null && !isNaN(parseFloat(row[idxAsosDew]));
-          const asosDew = hasAsos ? parseFloat(row[idxAsosDew]) : null;
-          const nbmErr  = (row[idxNbmErr] !== "" && row[idxNbmErr] !== undefined) ? parseFloat(row[idxNbmErr]) : null;
-          const tdaiErr = (row[idxTdaiErr] !== "" && row[idxTdaiErr] !== undefined) ? parseFloat(row[idxTdaiErr]) : null;
-          const skill   = (row[idxSkill] !== "" && row[idxSkill] !== undefined) ? parseFloat(row[idxSkill]) : null;
-
-          tabDataMap[tabKey] = {
+          // If the pipeline ran normally, map metrics natively
+          let parsedRowObj = {
             validTimeStr: cleanTimeStr.substring(0, 16),
             runTimeStr: rowRunTimeStr,
-            nbmDew: nbmDew.toFixed(1),
-            nbmRh: nbmRh.toFixed(0),
-            tdaiDew: tdaiDew.toFixed(1),
-            tdaiRh: tdaiRh.toFixed(0),
-            delta: delta.toFixed(1),
-            deltaValue: delta,
-            isVerified: hasAsos,
-            verification: {
+            status: statusText,
+            isBypassed: isBypassed,
+            nbmDew: isNaN(nbmDew) ? "--.-" : nbmDew.toFixed(1),
+            nbmRh: isNaN(nbmRh) ? "--" : nbmRh.toFixed(0),
+            tdaiDew: isNaN(tdaiDew) ? "--.-" : tdaiDew.toFixed(1),
+            tdaiRh: "--",
+            delta: "--.-",
+            deltaValue: 0.0,
+            isVerified: false,
+            verification: { asosDew: null, nbmErr: null, tdaiErr: null, skillScore: null }
+          };
+
+          if (!isBypassed && !isNaN(nbmTemp) && !isNaN(tdaiDew)) {
+            const tc = (nbmTemp - 32) * (5.0 / 9.0);
+            const tdc = (tdaiDew - 32) * (5.0 / 9.0);
+            const es = 6.112 * Math.exp((17.67 * tc) / (tc + 243.5));
+            const e = 6.112 * Math.exp((17.67 * tdc) / (tdc + 243.5));
+            const tdaiRh = Math.min(Math.max((e / es) * 100, 0.0), 100.0);
+            const delta = tdaiDew - nbmDew;
+
+            const hasAsos = row[idxAsosDew] !== "" && row[idxAsosDew] !== undefined && row[idxAsosDew] !== null && !isNaN(parseFloat(row[idxAsosDew]));
+            const asosDew = hasAsos ? parseFloat(row[idxAsosDew]) : null;
+            const nbmErr  = (row[idxNbmErr] !== "" && row[idxNbmErr] !== undefined) ? parseFloat(row[idxNbmErr]) : null;
+            const tdaiErr = (row[idxTdaiErr] !== "" && row[idxTdaiErr] !== undefined) ? parseFloat(row[idxTdaiErr]) : null;
+            const skill   = (row[idxSkill] !== "" && row[idxSkill] !== undefined) ? parseFloat(row[idxSkill]) : null;
+
+            parsedRowObj.tdaiRh = tdaiRh.toFixed(0);
+            parsedRowObj.delta = delta.toFixed(1);
+            parsedRowObj.deltaValue = delta;
+            parsedRowObj.isVerified = hasAsos;
+            parsedRowObj.verification = {
               asosDew: hasAsos ? asosDew.toFixed(1) : null,
               nbmErr: (nbmErr !== null && !isNaN(nbmErr)) ? nbmErr.toFixed(1) : null,
               tdaiErr: (tdaiErr !== null && !isNaN(tdaiErr)) ? tdaiErr.toFixed(1) : null,
               skillScore: (skill !== null && !isNaN(skill)) ? skill.toFixed(1) : null
-            }
-          };
+            };
+          }
+
+          tabDataMap[tabKey] = parsedRowObj;
         }
       }
 
@@ -326,10 +333,24 @@
       if (!data) {
         dataView.classList.add('hidden');
         emptyView.classList.remove('hidden');
+        emptyView.innerText = "No Data Available";
         metaRow.innerHTML = `Target Window: <span class="text-rose-400 font-bold">No Forecast Row In Sync Yet</span>`;
         return;
       }
 
+      // 🛠️ CONDITIONAL VIEW SHIFT ENGINE
+      if (data.isBypassed) {
+        // If the row was bypassed, mask the telemetry cards and inject the dynamic string layout
+        dataView.classList.add('hidden');
+        emptyView.classList.remove('hidden');
+        emptyView.innerHTML = `⚠️ No Data Available <span class="block text-xs font-medium text-slate-500 mt-1 not-italic">Reason &rarr; ${data.status}</span>`;
+        
+        metaRow.innerHTML = 
+          `Valid Time: <span class="text-indigo-400 font-bold">${data.validTimeStr} UTC</span> &nbsp;|&nbsp; Pipeline Log: <span class="text-rose-400 font-black uppercase tracking-wider">${data.status}</span>`;
+        return;
+      }
+
+      // Day is active: restore standard telemetry view panel configurations
       dataView.classList.remove('hidden');
       emptyView.classList.add('hidden');
 
