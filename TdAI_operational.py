@@ -112,7 +112,7 @@ def main():
     output_csv_path = os.path.join(base_path, "operational_log.csv")
 
     # -------------------------------------------------------------------------
-    # 🛰️ SECTION 1: MULTI-DAY LOOK-AHEAD INGESTION FOR 21Z AFTERNOON WINDOWS
+    # 🛰️ SECTION 1: CHOOSE AND DOWNLOAD THE MOST RECENT 12Z OR 00Z HRRR RUN
     # -------------------------------------------------------------------------
     current_time_utc = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
     
@@ -190,7 +190,7 @@ def main():
     master_hrrr_profiles_df['HRRR RH (%)'] = round(np.clip(100 * (e / es), 0.0, 100.0), 1)
 
     # -------------------------------------------------------------------------
-    # 📊 SECTION 2: DYNAMIC INGEST OF NBM BLEND METARS (01Z vs 13Z)
+    # 📊 SECTION 2: DYNAMIC DOWNLOAD OF NBM (01Z or 13Z)
     # -------------------------------------------------------------------------
     # 🕰️ Clock Check: Explicitly match the HRRR run hour chosen in Section 1
     # This guarantees that the 02:45 UTC cron pairs 00Z HRRR with 01Z NBM,
@@ -286,7 +286,7 @@ def main():
     master_input_df['cos_season'] = np.cos(2 * np.pi * doy / 365.25)
 
     # -------------------------------------------------------------------------
-    # 🔮 SECTION 4: MACHINE LEARNING GBDT PREDICTION BIAS ENGINE
+    # 🔮 SECTION 4: MACHINE LEARNING GBDT PREDICTION BIAS ENGINE (THRESHOLD GATED)
     # -------------------------------------------------------------------------
     model_import_path = os.path.join(base_path, "tdai_gbdt_model.joblib")
     features_import_path = os.path.join(base_path, "model_feature_schema.joblib")
@@ -297,12 +297,47 @@ def main():
     live_model = joblib.load(model_import_path)
     trained_feature_order = joblib.load(features_import_path)
 
-    X_live = master_input_df.set_index('valid_time') if 'valid_time' in master_input_df.columns else master_input_df.copy()
-    X_live = X_live[trained_feature_order]
+    # Initialize destination columns with safe default values (No ML Correction Applied)
+    master_input_df['TdAI Predicted Bias (F)'] = 0.0
+    master_input_df['TdAI Corrected Dewpoint (F)'] = master_input_df['NBM Dewpoint (F)'].astype(float).round(1)
+    master_input_df['TdAI Status'] = "Active"  # Default status string
 
-    predicted_target_error = live_model.predict(X_live)
-    master_input_df['TdAI Predicted Bias (F)'] = predicted_target_error.round(1)
-    master_input_df['TdAI Corrected Dewpoint (F)'] = (master_input_df['NBM Dewpoint (F)'] - master_input_df['TdAI Predicted Bias (F)']).round(1)
+    # Evaluate masks individually to compile exact baseline failure text reasons
+    t_pass = master_input_df['NBM Temperature (F)'] >= 50.0
+    rh_pass = master_input_df['NBM RH (%)'] <= 60.0
+    sky_pass = master_input_df['NBM Cloud Cover (%)'] <= 60.0
+    
+    threshold_mask = t_pass & rh_pass & sky_pass
+
+    # Loop row-by-row to compile dynamic telemetry tracking messages
+    for idx, row in master_input_df.iterrows():
+        v_str = pd.to_datetime(row['valid_time']).strftime('%Y-%m-%d %H:%M')
+        if threshold_mask[idx]:
+            print(f"🔥 {v_str} meets criteria (T={row['NBM Temperature (F)']}F, RH={row['NBM RH (%)']}%, Sky={row['NBM Cloud Cover (%)']}%). Executing GBDT Model...")
+        else:
+            reasons = []
+            if not t_pass[idx]: reasons.append("T < 50 F")
+            if not rh_pass[idx]: reasons.append("RH > 60 ")
+            if not sky_pass[idx]: reasons.append("Sky > 60")
+            
+            status_text = f"Bypassed: {', '.join(reasons)}"
+            master_input_df.at[idx, 'TdAI Status'] = status_text
+            print(f"🛑 {v_str} fails criteria. Reason: {status_text}. Bypassing ML bias correction.")
+
+    # Isolate the rows that pass our fire weather criteria
+    passing_rows = master_input_df[threshold_mask].copy()
+
+    # Only fire up the machine learning engine if at least one row passes the guard
+    if not passing_rows.empty:
+        X_live = passing_rows.set_index('valid_time') if 'valid_time' in passing_rows.columns else passing_rows.copy()
+        X_live = X_live[trained_feature_order]
+
+        predicted_target_error = live_model.predict(X_live)
+        
+        master_input_df.loc[threshold_mask, 'TdAI Predicted Bias (F)'] = np.round(predicted_target_error, 1)
+        master_input_df.loc[threshold_mask, 'TdAI Corrected Dewpoint (F)'] = np.round(
+            master_input_df.loc[threshold_mask, 'NBM Dewpoint (F)'] - master_input_df.loc[threshold_mask, 'TdAI Predicted Bias (F)'], 1
+        )
 
     # -------------------------------------------------------------------------
     # 📊 SECTION 5: RETROSPECTIVE CONTINUOUS VERIFICATION ENGINE
@@ -311,7 +346,7 @@ def main():
     
     # Ensure ledger structure exists
     headers = [
-        'valid_time', 'TdAI Run Time (UTC)', 'NBM Temperature (F)', 'NBM RH (%)', 
+        'valid_time', 'TdAI Run Time (UTC)', 'TdAI Status', 'NBM Temperature (F)', 'NBM RH (%)', 
         'NBM Dewpoint (F)', 'TdAI Predicted Bias (F)', 'TdAI Corrected Dewpoint (F)', 
         'ASOS Ground Truth Dewpoint (F)', 'Raw NBM Error (F)', 'Post TdAI Error (F)', 'TdAI Skill Score (%)'
     ]
@@ -337,6 +372,7 @@ def main():
         log_row = {
             'valid_time': forecast_valid_time.strftime('%Y-%m-%d %H:%M:%S'),
             'TdAI Run Time (UTC)': current_time_utc.strftime('%Y-%m-%d %H:%M UTC'),
+            'TdAI Status': row_data['TdAI Status'],  # 👈 Injects the dynamic bypass tracking code
             'NBM Temperature (F)': row_data['NBM Temperature (F)'],
             'NBM RH (%)': row_data['NBM RH (%)'],
             'NBM Dewpoint (F)': row_data['NBM Dewpoint (F)'],
