@@ -343,7 +343,7 @@
         // If the row was bypassed, mask the telemetry cards and inject the dynamic string layout
         dataView.classList.add('hidden');
         emptyView.classList.remove('hidden');
-        emptyView.innerHTML = `⚠️ No Data Available <span class="block text-xs font-medium text-slate-500 mt-1 not-italic">Reason &rarr; ${data.status}</span>`;
+        emptyView.innerHTML = `No Data Available <span class="block text-xs font-medium text-slate-500 mt-1 not-italic">TdAI Did Not Run &rarr; ${data.status}</span>`;
         
         metaRow.innerHTML = 
           `Valid Time: <span class="text-indigo-400 font-bold">${data.validTimeStr} UTC</span> &nbsp;|&nbsp; Pipeline Log: <span class="text-rose-400 font-black uppercase tracking-wider">${data.status}</span>`;
