@@ -333,6 +333,8 @@
         emptyView.classList.remove('hidden');
         emptyView.innerHTML = `No Data Available <span class="block text-xs font-medium text-slate-500 mt-1 not-italic">TdAI Run Bypassed &rarr; ${data.status}</span>`;
         
+        metaRow.innerHTML = 
+          `Valid Time: <span class="text-indigo-400 font-bold">${data.validTimeStr} UTC</span> &nbsp;|&nbsp; Pipeline Log: <span class="text-rose-400 font-black uppercase tracking-wider">${data.status}</span>`;
         return;
       }
 
