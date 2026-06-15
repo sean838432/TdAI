@@ -34,7 +34,7 @@ TdAI MODEL ARCHITECTURE:
 
 THE REPOSITORY CONSISTS OF TWO MAIN PARTS:
 
-1) A Python script that ingests 12z HRRR and 13z NBM data at KCAR which is used to run the TdAI model
+1) A Python script that ingests 00z/12z HRRR and 01z/13z NBM data at KCAR which is used to run the TdAI model twice a day
 2) A web visualization dashboard for TdAI forecast output
 
 Google Cloud Scheduler was used to set up a cron that runs TdAI at 14:45z every day
@@ -43,8 +43,7 @@ Google Cloud Scheduler was used to set up a cron that runs TdAI at 14:45z every 
 
 STILL TO DO:
 
-1) Set up an operational filter that runs the model only on fire weather days (i.e. T > 50 F, RH < 50 %, Sky < 60%)
-2) Tweak feature variables - Remove Td and add HRRR soil moisture
-3) Train & run the model on 00z HRRR runs so TdAI runs with the 13z and 01z NBM crons
-4) Add a probabilistic distribution to TdAI using an ensemble of quantile mapping runs (i.e. 10th, 25th, 50th, 75th, 90th
-5) Train the model on more ASOS sites (KBHB, KBGR, KGNR, KMLT, K40B)
+1) Tweak feature variables - Remove Td and add HRRR soil moisture
+2) Train the model on 00z HRRR runs so TdAI runs with the 13z and 01z NBM crons
+3) Add a probabilistic distribution to TdAI using an ensemble of quantile mapping runs (i.e. 10th, 25th, 50th, 75th, 90th
+4) Train the model on more ASOS sites (KBHB, KBGR, KGNR, KMLT, K40B)
