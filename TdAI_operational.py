@@ -86,15 +86,15 @@ def download_hrrr_grib(date_str, run_hour='12', forecast_hour=0):
         print(f"   ⚠️ NCEP server registry blocker on F{forecast_hour:02d}: {e}")
         return None
 
-def get_nbm_13z_bulletin(date_str):
-    """Retrieves the NBM text blend terminal output for analysis."""
-    base_url = f"https://nomads.ncep.noaa.gov/pub/data/nccf/com/blend/prod/blend.{date_str}/13/text/"
-    url = base_url + "blend_nbstx.t13z"
+def get_nbm_bulletin(date_str, run_hour='13'):
+    """Retrieves the NBM text blend terminal output for a specified run hour."""
+    base_url = f"https://nomads.ncep.noaa.gov/pub/data/nccf/com/blend/prod/blend.{date_str}/{run_hour}/text/"
+    url = base_url + f"blend_nbstx.t{run_hour}z"
     print(f"📡 Requesting NBM Text Feed: {url}")
     try:
         response = requests.get(url, timeout=15)
         if response.status_code == 200:
-            print(f"   └── Successfully fetched NBM text bulletin for {date_str}.")
+            print(f"   └── Successfully fetched NBM text bulletin for {date_str} ({run_hour}Z).")
             return response.text
         print(f"   ⚠️ File not ready yet on server for date {date_str} (Status: {response.status_code})")
         return None
@@ -112,12 +112,27 @@ def main():
     output_csv_path = os.path.join(base_path, "operational_log.csv")
 
     # -------------------------------------------------------------------------
-    # 🛰️ SECTION 1: INGEST 12Z HRRR SOUNDING PROFILES
+    # 🛰️ SECTION 1: MULTI-DAY LOOK-AHEAD INGESTION FOR 21Z AFTERNOON WINDOWS
     # -------------------------------------------------------------------------
+    current_time_utc = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
+    
     today = datetime.date.today()
     yesterday = today - datetime.timedelta(days=1)
-    date_strs = [today.strftime('%Y%m%d'), yesterday.strftime('%Y%m%d')]
-    forecast_hours = [9, 33]
+    
+    # 🕰️ Clock Check: Select the active model run cycle and its dual 21Z target hours
+    if current_time_utc.hour < 14:
+        target_run_hour = '00'
+        forecast_hours = [21, 45]  # Day 1 Afternoon (F21) & Day 2 Afternoon (F45)
+        # In early morning UTC, 'today' is the correct calendar date for the 00Z model run
+        date_strs = [today.strftime('%Y%m%d'), yesterday.strftime('%Y%m%d')]
+        print(f"🌙 Overnight Cron: Extracting 00Z HRRR Cycles for Day 1 (F21) and Day 2 (F45) afternoon windows...")
+    else:
+        target_run_hour = '12'
+        forecast_hours = [9, 33]   # Day 1 Afternoon (F09) & Day 2 Afternoon (F33)
+        # In the afternoon, 'today' is the correct calendar date for the 12Z model run
+        date_strs = [today.strftime('%Y%m%d'), yesterday.strftime('%Y%m%d')]
+        print(f"☀️ Daytime Cron: Extracting 12Z HRRR Cycles for Day 1 (F09) and Day 2 (F33) afternoon windows...")
+
     grib_files = {}
     all_forecast_dfs = []
 
@@ -126,11 +141,12 @@ def main():
         success = True
         temp_files = {}
         for fhr in forecast_hours:
-            local_file = download_hrrr_grib(ds_date, run_hour='12', forecast_hour=fhr)
+            local_file = download_hrrr_grib(ds_date, run_hour=target_run_hour, forecast_hour=fhr)
             if local_file:
                 temp_files[fhr] = local_file
             else:
                 success = False
+                # Cleanup partial files immediately if the cycle isn't fully ready on NOMADS
                 for f in temp_files.values():
                     if os.path.exists(f): os.remove(f)
                 break
@@ -139,11 +155,13 @@ def main():
             break
 
     if not grib_files:
-        raise RuntimeError("Could not retrieve complete synchronous 12z HRRR frames from server registry.")
+        raise RuntimeError(f"Could not retrieve complete synchronous {target_run_hour}z HRRR frames from server registry.")
 
+    # Loop through BOTH downloaded files to compile our multi-day vertical sounding profiles
     for fhr, grib_file in grib_files.items():
+        print(f"📊 Parsing vertical profile structures from temporary raster F{fhr:02d}...")
         with xr.open_dataset(grib_file, engine='cfgrib', backend_kwargs={'filter_by_keys': {'typeOfLevel': 'isobaricInhPa'}}) as ds_filtered:
-            valid_time_str = pd.Timestamp(ds_filtered['valid_time'].values).strftime('%Y-%m-%d %H:%M')
+            valid_time_str = pd.Timestamp(ds_filtered['valid_time'].values).strftime('%Y-%m-%d %H:%M:%S')
             
             # Map 0-360 East coordinate layout convention used by NOAA
             kcar_lon_360 = kcar_lon + 360.0 if kcar_lon < 0 else kcar_lon
@@ -172,18 +190,29 @@ def main():
     master_hrrr_profiles_df['HRRR RH (%)'] = round(np.clip(100 * (e / es), 0.0, 100.0), 1)
 
     # -------------------------------------------------------------------------
-    # 📊 SECTION 2: INGEST 13Z NBM BLEND METARS
+    # 📊 SECTION 2: DYNAMIC INGEST OF NBM BLEND METARS (01Z vs 13Z)
     # -------------------------------------------------------------------------
+    # 🕰️ Clock Check: Explicitly match the HRRR run hour chosen in Section 1
+    # This guarantees that the 02:45 UTC cron pairs 00Z HRRR with 01Z NBM,
+    # and the 14:45 UTC cron pairs 12Z HRRR with 13Z NBM.
+    if current_time_utc.hour < 14:
+        nbm_run_hour = '01'
+        print("🌙 Overnight Cron: Targeting the 01Z NBM Text Bulletin...")
+    else:
+        nbm_run_hour = '13'
+        print("☀️ Daytime Cron: Targeting the 13Z NBM Text Bulletin...")
+
     bulletin_text = None
     successful_date_str = None
     for date_str in date_strs:
-        bulletin_text = get_nbm_13z_bulletin(date_str)
+        # Dynamically pass the identified run hour into our generic helper function
+        bulletin_text = get_nbm_bulletin(date_str, run_hour=nbm_run_hour)
         if bulletin_text:
             successful_date_str = date_str
             break
             
     if not bulletin_text:
-        raise RuntimeError("NBM operational terminal bulletin stream unreachable.")
+        raise RuntimeError(f"NBM operational terminal bulletin stream ({nbm_run_hour}Z) unreachable.")
 
     lines = bulletin_text.split('\n')
     kcar_lines = []
