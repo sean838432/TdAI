@@ -32,11 +32,11 @@
     <nav class="flex flex-wrap gap-2 mb-8 border-b border-slate-800 pb-4" role="tablist">
       <button onclick="switchTab('day1')" id="btn-day1" class="px-4 py-2.5 rounded-xl font-bold text-sm bg-indigo-600 text-white shadow-md transition-all duration-150">Day 1 Forecast</button>
       <button onclick="switchTab('day2')" id="btn-day2" class="px-4 py-2.5 rounded-xl font-bold text-sm bg-slate-800/60 text-slate-400 border border-slate-700/40 hover:bg-slate-800 hover:text-slate-200 transition-all duration-150">Day 2 Forecast</button>
-      <button onclick="switchTab('day_minus1')" id="btn-day_minus1" class="px-4 py-2.5 rounded-xl font-bold text-sm bg-slate-800/60 text-slate-400 border border-slate-700/40 hover:bg-slate-800 hover:text-slate-200 transition-all duration-150">Day -1 Audit</button>
-      <button onclick="switchTab('day_minus2')" id="btn-day_minus2" class="px-4 py-2.5 rounded-xl font-bold text-sm bg-slate-800/60 text-slate-400 border border-slate-700/40 hover:bg-slate-800 hover:text-slate-200 transition-all duration-150">Day -2 Audit</button>
-      <button onclick="switchTab('day_minus3')" id="btn-day_minus3" class="px-4 py-2.5 rounded-xl font-bold text-sm bg-slate-800/60 text-slate-400 border border-slate-700/40 hover:bg-slate-800 hover:text-slate-200 transition-all duration-150">Day -3 Audit</button>
-      <button onclick="switchTab('day_minus4')" id="btn-day_minus4" class="px-4 py-2.5 rounded-xl font-bold text-sm bg-slate-800/60 text-slate-400 border border-slate-700/40 hover:bg-slate-800 hover:text-slate-200 transition-all duration-150">Day -4 Audit</button>
-      <button onclick="switchTab('day_minus5')" id="btn-day_minus5" class="px-4 py-2.5 rounded-xl font-bold text-sm bg-slate-800/60 text-slate-400 border border-slate-700/40 hover:bg-slate-800 hover:text-slate-200 transition-all duration-150">Day -5 Audit</button>
+      <button onclick="switchTab('day_minus1')" id="btn-day_minus1" class="px-4 py-2.5 rounded-xl font-bold text-sm bg-slate-800/60 text-slate-400 border border-slate-700/40 hover:bg-slate-800 hover:text-slate-200 transition-all duration-150">Day -1 Verification</button>
+      <button onclick="switchTab('day_minus2')" id="btn-day_minus2" class="px-4 py-2.5 rounded-xl font-bold text-sm bg-slate-800/60 text-slate-400 border border-slate-700/40 hover:bg-slate-800 hover:text-slate-200 transition-all duration-150">Day -2 Verification</button>
+      <button onclick="switchTab('day_minus3')" id="btn-day_minus3" class="px-4 py-2.5 rounded-xl font-bold text-sm bg-slate-800/60 text-slate-400 border border-slate-700/40 hover:bg-slate-800 hover:text-slate-200 transition-all duration-150">Day -3 Verification</button>
+      <button onclick="switchTab('day_minus4')" id="btn-day_minus4" class="px-4 py-2.5 rounded-xl font-bold text-sm bg-slate-800/60 text-slate-400 border border-slate-700/40 hover:bg-slate-800 hover:text-slate-200 transition-all duration-150">Day -4 Verification</button>
+      <button onclick="switchTab('day_minus5')" id="btn-day_minus5" class="px-4 py-2.5 rounded-xl font-bold text-sm bg-slate-800/60 text-slate-400 border border-slate-700/40 hover:bg-slate-800 hover:text-slate-200 transition-all duration-150">Day -5 Verification</button>
     </nav>
 
     <div id="error-banner" class="hidden mb-8 p-5 bg-red-950/40 border-l-4 border-red-500 text-red-300 font-medium rounded-lg shadow-md border border-red-900/30"></div>
@@ -334,7 +334,7 @@
       emptyView.classList.add('hidden');
 
       metaRow.innerHTML = 
-        `Verification Target Window: <span class="text-indigo-400 font-bold">${data.validTimeStr} UTC</span> &nbsp;|&nbsp; Latest Model Run: <span class="text-slate-200 font-bold">${data.runTimeStr}</span>`;
+        `Valid Time: <span class="text-indigo-400 font-bold">${data.validTimeStr} UTC</span> &nbsp;|&nbsp; Latest Model Run: <span class="text-slate-200 font-bold">${data.runTimeStr}</span>`;
 
       document.getElementById('kcar-nbm-dew').innerText = data.nbmDew + "°F";
       document.getElementById('kcar-nbm-rh').innerText = data.nbmRh + "% RH";
