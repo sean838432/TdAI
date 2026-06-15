@@ -357,14 +357,24 @@ def main():
         # Append the clean, updated row to the ledger
         combined_log_df = pd.concat([combined_log_df, new_entry_df], ignore_index=True)
 
-    # Enforce chronological ordering so your web dashboard graphs map smoothly
-    combined_log_df['valid_time'] = pd.to_datetime(combined_log_df['valid_time']).dt.strftime('%Y-%m-%d %H:%M:%S')
-    combined_log_df = combined_log_df.sort_values(by='valid_time').reset_index(drop=True)
-    combined_log_df_dt = pd.to_datetime(combined_log_df['valid_time'])
+        # Enforce chronological ordering so your web dashboard graphs map smoothly
+        combined_log_df['valid_time'] = pd.to_datetime(combined_log_df['valid_time']).dt.strftime('%Y-%m-%d %H:%M:%S')
+        
+        # 🧹 GLOBAL LEDGER DEEP CLEAN (Fixes historical stacking)
+        # 1. Sort by verification completeness so rows with valid ASOS data bubble to the bottom
+        combined_log_df = combined_log_df.sort_values(
+            by=['valid_time', 'ASOS Ground Truth Dewpoint (F)'], 
+            na_position='first'
+        )
+        # 2. Drop any historical duplicate valid_times globally, permanently keeping the one with verified data
+        combined_log_df = combined_log_df.drop_duplicates(subset=['valid_time'], keep='last')
+        
+        # 3. Final clean chronological sort for your web charts
+        combined_log_df = combined_log_df.sort_values(by='valid_time').reset_index(drop=True)
+        combined_log_df_dt = pd.to_datetime(combined_log_df['valid_time'])
 
-    # 💾 SAVE STEP: Write directly back to local repository file ledger
-    combined_log_df.to_csv(output_csv_path, index=False)
-    print(f"💾 File Ledger synchronizations successfully finalized. Total database entries: {len(combined_log_df)}")
+        # 💾 SAVE STEP: Write directly back to local repository file ledger
+        combined_log_df.to_csv(output_csv_path, index=False)
 
 if __name__ == "__main__":
     main()
