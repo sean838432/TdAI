@@ -363,28 +363,48 @@ def main():
 
     current_time_utc = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
 
-    # Append today's new forecast row with NaN verification placeholders
+    # Append today's new forecast row with placeholders or explicit data depending on threshold gate
     new_rows_list = []
     for idx in range(len(master_input_df)):
         row_data = master_input_df.iloc[idx]
         forecast_valid_time = row_data['valid_time']
         
-        log_row = {
-            'valid_time': forecast_valid_time.strftime('%Y-%m-%d %H:%M:%S'),
-            'TdAI Run Time (UTC)': current_time_utc.strftime('%Y-%m-%d %H:%M UTC'),
-            'TdAI Status': row_data['TdAI Status'],  # 👈 Injects the dynamic bypass tracking code
-            'NBM Temperature (F)': row_data['NBM Temperature (F)'],
-            'NBM RH (%)': row_data['NBM RH (%)'],
-            'NBM Dewpoint (F)': row_data['NBM Dewpoint (F)'],
-            'TdAI Predicted Bias (F)': row_data['TdAI Predicted Bias (F)'],
-            'TdAI Corrected Dewpoint (F)': row_data['TdAI Corrected Dewpoint (F)'],
-            'ASOS Ground Truth Dewpoint (F)': np.nan, 
-            'Raw NBM Error (F)': np.nan, 
-            'Post TdAI Error (F)': np.nan, 
-            'TdAI Skill Score (%)': np.nan
-        }
+        # 🛡️ THE MASK GUARD: Separate the columns based on whether the row passed or failed
+        if threshold_mask[idx]:
+            # This day is ACTIVE: Log every single metric and the model corrections
+            log_row = {
+                'valid_time': forecast_valid_time.strftime('%Y-%m-%d %H:%M:%S'),
+                'TdAI Run Time (UTC)': current_time_utc.strftime('%Y-%m-%d %H:%M UTC'),
+                'TdAI Status': row_data['TdAI Status'],  # Will log "Active"
+                'NBM Temperature (F)': row_data['NBM Temperature (F)'],
+                'NBM RH (%)': row_data['NBM RH (%)'],
+                'NBM Dewpoint (F)': row_data['NBM Dewpoint (F)'],
+                'TdAI Predicted Bias (F)': row_data['TdAI Predicted Bias (F)'],
+                'TdAI Corrected Dewpoint (F)': row_data['TdAI Corrected Dewpoint (F)'],
+                'ASOS Ground Truth Dewpoint (F)': np.nan, 
+                'Raw NBM Error (F)': np.nan, 
+                'Post TdAI Error (F)': np.nan, 
+                'TdAI Skill Score (%)': np.nan
+            }
+        else:
+            # This day is BYPASSED: Log the status row to mark execution, 
+            # but leave the forecast metric values blank so they don't corrupt the ledger history.
+            log_row = {
+                'valid_time': forecast_valid_time.strftime('%Y-%m-%d %H:%M:%S'),
+                'TdAI Run Time (UTC)': current_time_utc.strftime('%Y-%m-%d %H:%M UTC'),
+                'TdAI Status': row_data['TdAI Status'],  # Will log "Bypassed: Reason..."
+                'NBM Temperature (F)': np.nan,           # ✂️ Cleared out
+                'NBM RH (%)': np.nan,                    # ✂️ Cleared out
+                'NBM Dewpoint (F)': np.nan,                  # ✂️ Cleared out
+                'TdAI Predicted Bias (F)': 0.0,
+                'TdAI Corrected Dewpoint (F)': np.nan,   # ✂️ Cleared out
+                'ASOS Ground Truth Dewpoint (F)': np.nan, 
+                'Raw NBM Error (F)': np.nan, 
+                'Post TdAI Error (F)': np.nan, 
+                'TdAI Skill Score (%)': np.nan
+            }
+            
         new_rows_list.append(log_row)
-
     # -------------------------------------------------------------------------
     # 🔄 ATOMIC OVERWRITE & DEDUPLICATION LOGIC
     # -------------------------------------------------------------------------
