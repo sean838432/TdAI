@@ -138,14 +138,10 @@
     let globalTabsDataset = null;
     let currentTabActive = "day1";
 
-    // Trigger explicit fetch layout immediately upon resource assembly stabilization
     window.addEventListener('DOMContentLoaded', () => {
       fetchDashboardDataFromCSV();
     });
 
-    /**
-     * 🛰️ REPLACES CODE.GS: Asynchronously streams, parses, and formats the local CSV logs
-     */
     function fetchDashboardDataFromCSV() {
       fetch('./operational_log.csv', { cache: "no-store" })
         .then(response => {
@@ -162,9 +158,6 @@
         });
     }
 
-    /**
-     * Transforms raw CSV text metrics into a synchronized dictionary partitioned by tab timelines
-     */
     function parseAndInitializePayload(text) {
       const lines = text.trim().split('\n');
       if (lines.length < 2) {
@@ -175,7 +168,7 @@
       const headers = parseCSVLine(lines[0]);
       
       const idxValidTime = headers.indexOf('valid_time');
-      const idxTdaiStatus = headers.indexOf('TdAI Status');  // 🚀 Maps the fresh reason tracking index
+      const idxTdaiStatus = headers.indexOf('TdAI Status');  
       const idxNbmTemp   = headers.indexOf('NBM Temperature (F)');
       const idxNbmDew    = headers.indexOf('NBM Dewpoint (F)');
       const idxNbmRh     = headers.indexOf('NBM RH (%)');
@@ -230,9 +223,10 @@
         else if (dayDelta === -5) tabKey = 'day_minus5';
 
         if (tabKey && !tabDataMap[tabKey]) {
-          // 🛑 THRESHOLD BYPASS EXTRACTION: Extract status string cell contents safely
           const statusText = (idxTdaiStatus !== -1 && row[idxTdaiStatus]) ? row[idxTdaiStatus].replace(/"/g, '').trim() : "Active";
-          const isBypassed = statusText.includes("Bypassed");
+          
+          // 🛡️ REWRITTEN CRITERIA: A row is bypassed if its status text is anything other than "Active" or blank
+          const isBypassed = statusText !== "Active" && statusText !== "";
 
           const nbmTemp = parseFloat(row[idxNbmTemp]);
           const nbmDew  = parseFloat(row[idxNbmDew]);
@@ -240,7 +234,6 @@
           const tdaiDew = parseFloat(row[idxTdaiDew]);
           const rowRunTimeStr = row[idxRunTime] ? row[idxRunTime].replace(/"/g, '').trim() : "N/A";
 
-          // If the pipeline ran normally, map metrics natively
           let parsedRowObj = {
             validTimeStr: cleanTimeStr.substring(0, 16),
             runTimeStr: rowRunTimeStr,
@@ -256,9 +249,7 @@
             verification: { asosDew: null, nbmErr: null, tdaiErr: null, skillScore: null }
           };
 
-          // 🛡️ RECONFIGURED GUARD: Only check weather numbers if the run is ACTIVE
           if (!isBypassed) {
-            // If an active run is missing data, skip it
             if (isNaN(nbmTemp) || isNaN(tdaiDew)) continue;
 
             const tc = (nbmTemp - 32) * (5.0 / 9.0);
@@ -294,9 +285,6 @@
       switchTab(currentTabActive);
     }
 
-    /**
-     * CSV helper utility function that properly slices row tokens while ignoring internal comma configurations
-     */
     function parseCSVLine(line) {
       let arr = [];
       let quote = false;
@@ -313,9 +301,6 @@
       return arr;
     }
 
-    /**
-     * Toggles layout styles and updates responsive elements across components
-     */
     function switchTab(tabKey) {
       currentTabActive = tabKey;
       if (!globalTabsDataset) return;
@@ -344,7 +329,6 @@
 
       // 🛠️ CONDITIONAL VIEW SHIFT ENGINE
       if (data.isBypassed) {
-        // If the row was bypassed, mask the telemetry cards and inject the dynamic string layout
         dataView.classList.add('hidden');
         emptyView.classList.remove('hidden');
         emptyView.innerHTML = `No Data Available <span class="block text-xs font-medium text-slate-500 mt-1 not-italic">TdAI Run Bypassed &rarr; ${data.status}</span>`;
@@ -354,7 +338,6 @@
         return;
       }
 
-      // Day is active: restore standard telemetry view panel configurations
       dataView.classList.remove('hidden');
       emptyView.classList.add('hidden');
 
