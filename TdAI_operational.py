@@ -317,10 +317,10 @@ def main():
         else:
             reasons = []
             if not t_pass[idx]: reasons.append("T < 50 F")
-            if not rh_pass[idx]: reasons.append("RH > 60 ")
-            if not sky_pass[idx]: reasons.append("Sky > 60")
+            if not rh_pass[idx]: reasons.append("RH > 60 %")
+            if not sky_pass[idx]: reasons.append("Sky > 60 %")
             
-            status_text = f"Bypassed: {', '.join(reasons)}"
+            status_text = f"{', '.join(reasons)}"
             master_input_df.at[idx, 'TdAI Status'] = status_text
             print(f"🛑 {v_str} fails criteria. Reason: {status_text}. Bypassing ML bias correction.")
 
