@@ -406,7 +406,7 @@ def main():
             
         new_rows_list.append(log_row)
     # -------------------------------------------------------------------------
-    # 🔄 ATOMIC OVERWRITE & DEDUPLICATION LOGIC
+    # 🔄 OVERWRITE & DEDUPLICATION LOGIC
     # -------------------------------------------------------------------------
     if new_rows_list:
         new_entry_df = pd.DataFrame(new_rows_list)
@@ -459,7 +459,7 @@ def main():
         combined_log_df_dt = pd.to_datetime(combined_log_df['valid_time'])
 
         # -------------------------------------------------------------------------
-        # 🔄 SECTION 5: BULK RETROSPECTIVE VERIFICATION ENGINE (429 RATE-LIMIT PROOF)
+        # 🔄 BULK RETROSPECTIVE VERIFICATION ENGINE (429 RATE-LIMIT PROOF)
         # -------------------------------------------------------------------------
         # Selects rows where ASOS is NaN, and the target valid hour has passed (plus a 15-minute transmission grace buffer)
         missing_mask = combined_log_df['ASOS Ground Truth Dewpoint (F)'].isna() & (combined_log_df_dt + datetime.timedelta(minutes=15) <= current_time_utc)
@@ -543,7 +543,7 @@ def main():
                             print("       ⚠️ Observation record contains invalid or non-numeric elements.")
                     else:
                         print("       ⚠️ Target hour reporting timestamp missing from pooled data.")
-                        
+
         # 💾 SAVE STEP: Write directly back to local repository file ledger
         combined_log_df.to_csv(output_csv_path, index=False)
 
