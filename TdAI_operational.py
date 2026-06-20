@@ -458,6 +458,62 @@ def main():
         combined_log_df = combined_log_df.sort_values(by='valid_time').reset_index(drop=True)
         combined_log_df_dt = pd.to_datetime(combined_log_df['valid_time'])
 
+        # -------------------------------------------------------------------------
+        # 🔄 LOOP: Retrospectively scan and fill ALL missing ASOS observations
+        # -------------------------------------------------------------------------
+        # Selects rows where ASOS is NaN, and the target valid hour has passed (plus a 15-minute transmission grace buffer)
+        missing_mask = combined_log_df['ASOS Ground Truth Dewpoint (F)'].isna() & (combined_log_df_dt + datetime.timedelta(minutes=15) <= current_time_utc)
+        missing_indices = combined_log_df[missing_mask].index
+
+        if len(missing_indices) > 0:
+            print(f"\n🔄 Found {len(missing_indices)} historical rows awaiting real-time verification...")
+            
+            for idx in missing_indices:
+                v_time = pd.to_datetime(combined_log_df.loc[idx, 'valid_time'])
+                v_status = combined_log_df.loc[idx, 'TdAI Status']
+                
+                print(f"   └── Querying ASOS ground truth for: {v_time.strftime('%Y-%m-%d %H:%M UTC')} [Status: {v_status}]")
+                
+                # Query window bounds around the target verification day
+                start_date = v_time - datetime.timedelta(days=1)
+                end_date = v_time + datetime.timedelta(days=1)
+                asos_url = f"https://mesonet.agron.iastate.edu/cgi-bin/request/asos.py?station=CAR&data=dwpf&year1={start_date.year}&month1={start_date.month}&day1={start_date.day}&year2={end_date.year}&month2={end_date.month}&day2={end_date.day}&tz=UTC&format=comma"
+                
+                try:
+                    res = requests.get(asos_url, timeout=20)
+                    if res.status_code == 200:
+                        asos_df = pd.read_csv(io.StringIO(res.text), comment='#')
+                        if not asos_df.empty and 'dwpf' in asos_df.columns:
+                            asos_df['valid_dt'] = pd.to_datetime(asos_df['valid'])
+                            asos_df['rounded_valid_time'] = asos_df['valid_dt'].dt.round('h')
+                            
+                            target_obs = asos_df[asos_df['rounded_valid_time'] == v_time].copy()
+                            target_obs['dwpf_numeric'] = pd.to_numeric(target_obs['dwpf'], errors='coerce')
+                            valid_reports = target_obs.dropna(subset=['dwpf_numeric'])
+                            
+                            if not valid_reports.empty:
+                                asos_gt = valid_reports['dwpf_numeric'].iloc[0]
+                                combined_log_df.loc[idx, 'ASOS Ground Truth Dewpoint (F)'] = asos_gt
+                                
+                                # 🧠 INTELLECTUAL CHECK: Only calculate model errors if the row wasn't bypassed!
+                                if v_status == "Active":
+                                    r_nbm_err = combined_log_df.loc[idx, 'NBM Dewpoint (F)'] - asos_gt
+                                    p_tdai_err = combined_log_df.loc[idx, 'TdAI Corrected Dewpoint (F)'] - asos_gt
+                                    skill_score = (1.0 - (abs(p_tdai_err) / abs(r_nbm_err))) * 100 if abs(r_nbm_err) > 0 else 0.0
+                                    
+                                    combined_log_df.loc[idx, 'Raw NBM Error (F)'] = round(r_nbm_err, 2)
+                                    combined_log_df.loc[idx, 'Post TdAI Error (F)'] = round(p_tdai_err, 2)
+                                    combined_log_df.loc[idx, 'TdAI Skill Score (%)'] = round(skill_score, 1)
+                                    print(f"       ✅ Active Row Validated! ASOS: {asos_gt}F | TdAI Skill: {round(skill_score, 1)}%")
+                                else:
+                                    # If the row was bypassed, we don't have model corrections to score,
+                                    # but we log the ASOS dewpoint so you can track what the actual conditions were
+                                    print(f"       📝 Bypassed Row Validated! Observed ASOS Dewpoint: {asos_gt}F (Calculations omitted).")
+                            else:
+                                print("       ⚠️ Observation record not published on Mesonet registry yet.")
+                except Exception as e:
+                    print(f"       ❌ Verification network latency exception: {e}")
+
         # 💾 SAVE STEP: Write directly back to local repository file ledger
         combined_log_df.to_csv(output_csv_path, index=False)
 
