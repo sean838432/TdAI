@@ -459,7 +459,7 @@ def main():
         combined_log_df_dt = pd.to_datetime(combined_log_df['valid_time'])
 
         # -------------------------------------------------------------------------
-        # 🔄 LOOP: Retrospectively scan and fill ALL missing ASOS observations
+        # 🔄 SECTION 5: BULK RETROSPECTIVE VERIFICATION ENGINE (429 RATE-LIMIT PROOF)
         # -------------------------------------------------------------------------
         # Selects rows where ASOS is NaN, and the target valid hour has passed (plus a 15-minute transmission grace buffer)
         missing_mask = combined_log_df['ASOS Ground Truth Dewpoint (F)'].isna() & (combined_log_df_dt + datetime.timedelta(minutes=15) <= current_time_utc)
@@ -468,72 +468,82 @@ def main():
         if len(missing_indices) > 0:
             print(f"\n🔄 Found {len(missing_indices)} historical rows awaiting real-time verification...")
             
-            for idx in missing_indices:
-                # 🛡️ FIX: Force hard parsing via pandas to convert raw string/timestamp inputs to clean Datetime objects
-                raw_vtime = combined_log_df.loc[idx, 'valid_time']
-                v_time = pd.to_datetime(raw_vtime)
-                v_status = str(combined_log_df.loc[idx, 'TdAI Status']).strip()
-                
-                print(f"   └── Querying ASOS ground truth for: {v_time.strftime('%Y-%m-%d %H:%M UTC')} [Status: {v_status}]")
-                
-                # Query window bounds safely formatted around the target verification day
-                start_date = v_time - datetime.timedelta(days=1)
-                end_date = v_time + datetime.timedelta(days=1)
-                
-                # Clean URL construction using explicitly extracted integer formats
-                asos_url = (
-                    f"https://mesonet.agron.iastate.edu/cgi-bin/request/asos.py?"
-                    f"station=CAR&data=dwpf"
-                    f"&year1={start_date.year}&month1={start_date.month}&day1={start_date.day}"
-                    f"&year2={end_date.year}&month2={end_date.month}&day2={end_date.day}"
-                    f"&tz=UTC&format=comma"
-                )
-                
-                try:
-                    res = requests.get(asos_url, timeout=20)
-                    if res.status_code == 200:
-                        asos_df = pd.read_csv(io.StringIO(res.text), comment='#')
-                        if not asos_df.empty and 'dwpf' in asos_df.columns:
-                            asos_df['valid_dt'] = pd.to_datetime(asos_df['valid'])
-                            asos_df['rounded_valid_time'] = asos_df['valid_dt'].dt.round('h')
-                            
-                            # Standardize timezone reference to match the file log's whole hour format axis
-                            target_vtime_str = v_time.strftime('%Y-%m-%d %H:%M:%S')
-                            asos_df['rounded_valid_time_str'] = asos_df['rounded_valid_time'].dt.strftime('%Y-%m-%d %H:%M:%S')
-                            
-                            target_obs = asos_df[asos_df['rounded_valid_time_str'] == target_vtime_str].copy()
-                            if not target_obs.empty:
-                                target_obs['dwpf_numeric'] = pd.to_numeric(target_obs['dwpf'], errors='coerce')
-                                valid_reports = target_obs.dropna(subset=['dwpf_numeric'])
-                                
-                                if not valid_reports.empty:
-                                    asos_gt = float(valid_reports['dwpf_numeric'].iloc[0])
-                                    combined_log_df.loc[idx, 'ASOS Ground Truth Dewpoint (F)'] = asos_gt
-                                    
-                                    # 🧠 INTELLECTUAL CHECK: Only calculate model errors if the row wasn't bypassed!
-                                    if v_status == "Active":
-                                        nbm_dew = float(combined_log_df.loc[idx, 'NBM Dewpoint (F)'])
-                                        tdai_dew = float(combined_log_df.loc[idx, 'TdAI Corrected Dewpoint (F)'])
-                                        
-                                        r_nbm_err = nbm_dew - asos_gt
-                                        p_tdai_err = tdai_dew - asos_gt
-                                        skill_score = (1.0 - (abs(p_tdai_err) / abs(r_nbm_err))) * 100 if abs(r_nbm_err) > 0 else 0.0
-                                        
-                                        combined_log_df.loc[idx, 'Raw NBM Error (F)'] = round(r_nbm_err, 2)
-                                        combined_log_df.loc[idx, 'Post TdAI Error (F)'] = round(p_tdai_err, 2)
-                                        combined_log_df.loc[idx, 'TdAI Skill Score (%)'] = round(skill_score, 1)
-                                        print(f"       ✅ Active Row Validated! ASOS: {asos_gt}F | TdAI Skill: {round(skill_score, 1)}%")
-                                    else:
-                                        print(f"       📝 Bypassed Row Validated! Observed ASOS Dewpoint: {asos_gt}F (Calculations omitted).")
-                                else:
-                                    print("       ⚠️ Observation record contains non-numeric entries.")
-                            else:
-                                print("       ⚠️ Target hour reporting timestamp missing from Mesonet output table.")
+            # Step 1: Isolate timestamps for missing rows to determine global min/max boundaries
+            missing_vtimes = pd.to_datetime(combined_log_df.loc[missing_indices, 'valid_time'])
+            min_vtime = missing_vtimes.min()
+            max_vtime = missing_vtimes.max()
+            
+            # Pad window by 1 day on each side to handle boundary parameters safely
+            start_date = min_vtime - datetime.timedelta(days=1)
+            end_date = max_vtime + datetime.timedelta(days=1)
+            
+            print(f"📡 Pooling bulk ASOS data matrix from server registry: {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}...")
+            
+            # Construct a single bulk URL string
+            asos_url = (
+                f"https://mesonet.agron.iastate.edu/cgi-bin/request/asos.py?"
+                f"station=CAR&data=dwpf"
+                f"&year1={start_date.year}&month1={start_date.month}&day1={start_date.day}"
+                f"&year2={end_date.year}&month2={end_date.month}&day2={end_date.day}"
+                f"&tz=UTC&format=comma"
+            )
+            
+            bulk_asos_df = pd.DataFrame()
+            try:
+                res = requests.get(asos_url, timeout=25)
+                if res.status_code == 200:
+                    bulk_asos_df = pd.read_csv(io.StringIO(res.text), comment='#')
+                    if not bulk_asos_df.empty and 'dwpf' in bulk_asos_df.columns:
+                        bulk_asos_df['valid_dt'] = pd.to_datetime(bulk_asos_df['valid'])
+                        # Standardize dates into rounded strings for perfect local matrix joining
+                        bulk_asos_df['rounded_valid_time_str'] = bulk_asos_df['valid_dt'].dt.round('h').dt.strftime('%Y-%m-%d %H:%M:%S')
+                        print("   ✅ Bulk observation database compiled and cached locally in workflow memory.")
                     else:
-                        print(f"       ⚠️ Mesonet HTTP connection failure (Status: {res.status_code})")
-                except Exception as e:
-                    print(f"       ❌ Verification network latency exception: {e}")
-
+                        print("   ⚠️ Pooled ASOS observation table returned empty rows.")
+                else:
+                    print(f"   ❌ Mesonet bulk server handshake failure (Status: {res.status_code})")
+            except Exception as e:
+                print(f"   ❌ Network latency during bulk dataset retrieval: {e}")
+                
+            # Step 2: Loop through missing indices LOCALLY using our pre-downloaded database cache
+            if not bulk_asos_df.empty and 'rounded_valid_time_str' in bulk_asos_df.columns:
+                for idx in missing_indices:
+                    v_time = pd.to_datetime(combined_log_df.loc[idx, 'valid_time'])
+                    target_vtime_str = v_time.strftime('%Y-%m-%d %H:%M:%S')
+                    v_status = str(combined_log_df.loc[idx, 'TdAI Status']).strip()
+                    
+                    print(f"   └── Processing validation row for: {v_time.strftime('%Y-%m-%d %H:%M UTC')} [Status: {v_status}]")
+                    
+                    # Filter local dataframe cache using exact string matching loops
+                    target_obs = bulk_asos_df[bulk_asos_df['rounded_valid_time_str'] == target_vtime_str].copy()
+                    if not target_obs.empty:
+                        target_obs['dwpf_numeric'] = pd.to_numeric(target_obs['dwpf'], errors='coerce')
+                        valid_reports = target_obs.dropna(subset=['dwpf_numeric'])
+                        
+                        if not valid_reports.empty:
+                            asos_gt = float(valid_reports['dwpf_numeric'].iloc[0])
+                            combined_log_df.loc[idx, 'ASOS Ground Truth Dewpoint (F)'] = asos_gt
+                            
+                            # 🧠 INTELLECTUAL CHECK: Only score models if the run was Active
+                            if v_status == "Active":
+                                nbm_dew = float(combined_log_df.loc[idx, 'NBM Dewpoint (F)'])
+                                tdai_dew = float(combined_log_df.loc[idx, 'TdAI Corrected Dewpoint (F)'])
+                                
+                                r_nbm_err = nbm_dew - asos_gt
+                                p_tdai_err = tdai_dew - asos_gt
+                                skill_score = (1.0 - (abs(p_tdai_err) / abs(r_nbm_err))) * 100 if abs(r_nbm_err) > 0 else 0.0
+                                
+                                combined_log_df.loc[idx, 'Raw NBM Error (F)'] = round(r_nbm_err, 2)
+                                combined_log_df.loc[idx, 'Post TdAI Error (F)'] = round(p_tdai_err, 2)
+                                combined_log_df.loc[idx, 'TdAI Skill Score (%)'] = round(skill_score, 1)
+                                print(f"       ✅ Active Row Validated! ASOS: {asos_gt}F | TdAI Skill: {round(skill_score, 1)}%")
+                            else:
+                                print(f"       📝 Bypassed Row Validated! Observed ASOS Dewpoint: {asos_gt}F (Calculations omitted).")
+                        else:
+                            print("       ⚠️ Observation record contains invalid or non-numeric elements.")
+                    else:
+                        print("       ⚠️ Target hour reporting timestamp missing from pooled data.")
+                        
         # 💾 SAVE STEP: Write directly back to local repository file ledger
         combined_log_df.to_csv(output_csv_path, index=False)
 
