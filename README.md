@@ -11,7 +11,6 @@ TdAI MODEL ARCHITECTURE:
 
     FEATURE VARIABLES:
         NBM Temperature (C)
-        NBM Dewpoint (C)
         NBM RH (%)
         NBM Sky (%)
         NBM Mixing Height (100s of ft AGL)
@@ -43,7 +42,7 @@ Google Cloud Scheduler was used to set up a cron that runs TdAI at 14:45z every 
 
 STILL TO DO:
 
-1) Tweak feature variables - Remove Td and add HRRR soil moisture
+1) Add HRRR soil moisture and/or recent precipitation
 2) Train the model on 00z HRRR runs so TdAI runs with the 13z and 01z NBM crons
 3) Add a probabilistic distribution to TdAI using an ensemble of quantile mapping runs (i.e. 10th, 25th, 50th, 75th, 90th
 4) Train the model on more ASOS sites (KBHB, KBGR, KGNR, KMLT, K40B)
