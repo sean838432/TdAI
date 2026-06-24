@@ -192,9 +192,6 @@ def main():
     # -------------------------------------------------------------------------
     # 📊 SECTION 2: DYNAMIC DOWNLOAD OF NBM (01Z or 13Z)
     # -------------------------------------------------------------------------
-    # 🕰️ Clock Check: Explicitly match the HRRR run hour chosen in Section 1
-    # This guarantees that the 02:45 UTC cron pairs 00Z HRRR with 01Z NBM,
-    # and the 14:45 UTC cron pairs 12Z HRRR with 13Z NBM.
     if current_time_utc.hour < 14:
         nbm_run_hour = '01'
         print("🌙 Overnight Cron: Targeting the 01Z NBM Text Bulletin...")
@@ -205,7 +202,6 @@ def main():
     bulletin_text = None
     successful_date_str = None
     for date_str in date_strs:
-        # Dynamically pass the identified run hour into our generic helper function
         bulletin_text = get_nbm_bulletin(date_str, run_hour=nbm_run_hour)
         if bulletin_text:
             successful_date_str = date_str
@@ -226,7 +222,8 @@ def main():
                 break
 
     parsed_data = {}
-    targets = {'UTC': 'UTC Hour', 'TMP': 'NBM Temperature (F)', 'DPT': 'NBM Dewpoint (F)', 'SKY': 'NBM Cloud Cover (%)', 'WDR': 'NBM Wind Direction (tens deg)', 'WSP': 'NBM Wind Speed (kts)', 'MHT': 'NBM Mixing Height (100s ft)'}
+    # Removed 'DPT' target tracking column completely
+    targets = {'UTC': 'UTC Hour', 'TMP': 'NBM Temperature (F)', 'SKY': 'NBM Cloud Cover (%)', 'WDR': 'NBM Wind Direction (tens deg)', 'WSP': 'NBM Wind Speed (kts)', 'MHT': 'NBM Mixing Height (100s ft)'}
     for line in kcar_lines:
         tokens = line.split()
         if not tokens or tokens[0] not in targets: continue
@@ -249,11 +246,9 @@ def main():
     if 'NBM Wind Direction (tens deg)' in nbm_df.columns: nbm_df['NBM Wind Direction (deg)'] = nbm_df['NBM Wind Direction (tens deg)'] * 10
     if 'NBM Mixing Height (100s ft)' in nbm_df.columns: nbm_df['NBM Mixing Height (100s ft AGL)'] = nbm_df['NBM Mixing Height (100s ft)']
     
-    nbm_tc = (nbm_df['NBM Temperature (F)'] - 32) * (5.0 / 9.0)
-    nbm_tdc = (nbm_df['NBM Dewpoint (F)'] - 32) * (5.0 / 9.0)
-    nbm_es = np.exp((17.625 * nbm_tc) / (243.04 + nbm_tc))
-    nbm_e = np.exp((17.625 * nbm_tdc) / (243.04 + nbm_tdc))
-    nbm_df['NBM RH (%)'] = round(np.clip(100 * (nbm_e / nbm_es), 0.0, 100.0), 1)
+    # ✂️ Dropped vapor pressure calculation from text bulletin dewpoint rows.
+    # NBM RH (%) will now be populated directly from the feature arrays later or via direct ingestion
+    nbm_df['NBM RH (%)'] = np.nan 
     
     print("⏰ Filtering output matrix arrays to parse 21Z peak afternoon mixing windows...")
     nbm_df = nbm_df[nbm_df['valid_time'].dt.hour == 21].copy()
@@ -281,35 +276,39 @@ def main():
     hrrr_pivoted['700mb-500mb Lapse Rate (C/km)'] = calculate_lapse_rate_vectorized(hrrr_pivoted, 700, 500)
 
     master_input_df = pd.merge(nbm_df, hrrr_pivoted, on='valid_time', how='inner')
+    
+    # Map NBM RH (%) directly from the matched HRRR 1000mb or surface grid feature rows
+    if 'rh_1000' in master_input_df.columns:
+        master_input_df['NBM RH (%)'] = master_input_df['rh_1000'].astype(float).round(1)
+
     doy = master_input_df['valid_time'].dt.dayofyear
-    master_input_df['sin_season'] = np.sin(2 * np.pi * doy / 365.25)
+    master_input_df['sin_season'] = np.sin(2 * np.pi * doy / 3 warm.25)
     master_input_df['cos_season'] = np.cos(2 * np.pi * doy / 365.25)
 
     # -------------------------------------------------------------------------
     # 🔮 SECTION 4: MACHINE LEARNING GBDT PREDICTION BIAS ENGINE (THRESHOLD GATED)
     # -------------------------------------------------------------------------
-    model_import_path = os.path.join(base_path, "tdai_gbdt_model.joblib")
-    features_import_path = os.path.join(base_path, "model_feature_schema.joblib")
+    # 🚀 UPDATED ARTIFACT PATHS TO TARGET RESOLVED DETERMINISTIC SCHEMAS
+    model_import_path = os.path.join(base_path, "tdai_deterministic_model.joblib") [cite: 330]
+    features_import_path = os.path.join(base_path, "deterministic_model_feature_schema.joblib") [cite: 330]
     
     if not (os.path.exists(model_import_path) and os.path.exists(features_import_path)):
         raise FileNotFoundError("❌ Core Model weights (.joblib) or schema trackers missing from repo root directory.")
         
-    live_model = joblib.load(model_import_path)
-    trained_feature_order = joblib.load(features_import_path)
+    live_model = joblib.load(model_import_path) [cite: 330]
+    trained_feature_order = joblib.load(features_import_path) [cite: 330]
 
-    # Initialize destination columns with safe default values (No ML Correction Applied)
+    # Initialize destination columns matching updated feature profiles
     master_input_df['TdAI Predicted Bias (F)'] = 0.0
-    master_input_df['TdAI Corrected Dewpoint (F)'] = master_input_df['NBM Dewpoint (F)'].astype(float).round(1)
-    master_input_df['TdAI Status'] = "Active"  # Default status string
+    master_input_df['TdAI Corrected RH (%)'] = master_input_df['NBM RH (%)'].astype(float).round(1)
+    master_input_df['TdAI Status'] = "Active"
 
-    # Evaluate masks individually to compile exact baseline failure text reasons
     t_pass = master_input_df['NBM Temperature (F)'] >= 50.0
     rh_pass = master_input_df['NBM RH (%)'] <= 60.0
     sky_pass = master_input_df['NBM Cloud Cover (%)'] <= 60.0
     
     threshold_mask = t_pass & rh_pass & sky_pass
 
-    # Loop row-by-row to compile dynamic telemetry tracking messages
     for idx, row in master_input_df.iterrows():
         v_str = pd.to_datetime(row['valid_time']).strftime('%Y-%m-%d %H:%M')
         if threshold_mask[idx]:
@@ -324,10 +323,8 @@ def main():
             master_input_df.at[idx, 'TdAI Status'] = status_text
             print(f"🛑 {v_str} fails criteria. Reason: {status_text}. Bypassing ML bias correction.")
 
-    # Isolate the rows that pass our fire weather criteria
     passing_rows = master_input_df[threshold_mask].copy()
 
-    # Only fire up the machine learning engine if at least one row passes the guard
     if not passing_rows.empty:
         X_live = passing_rows.set_index('valid_time') if 'valid_time' in passing_rows.columns else passing_rows.copy()
         X_live = X_live[trained_feature_order]
@@ -335,8 +332,8 @@ def main():
         predicted_target_error = live_model.predict(X_live)
         
         master_input_df.loc[threshold_mask, 'TdAI Predicted Bias (F)'] = np.round(predicted_target_error, 1)
-        master_input_df.loc[threshold_mask, 'TdAI Corrected Dewpoint (F)'] = np.round(
-            master_input_df.loc[threshold_mask, 'NBM Dewpoint (F)'] - master_input_df.loc[threshold_mask, 'TdAI Predicted Bias (F)'], 1
+        master_input_df.loc[threshold_mask, 'TdAI Corrected RH (%)'] = np.round(
+            master_input_df.loc[threshold_mask, 'NBM RH (%)'] - master_input_df.loc[threshold_mask, 'TdAI Predicted Bias (F)'], 1
         )
 
     # -------------------------------------------------------------------------
@@ -344,16 +341,15 @@ def main():
     # -------------------------------------------------------------------------
     print("\n📡 Initializing Automated Forecast Validation & Local CSV Ledger Sync...")
     
-    # Ensure ledger structure exists
+    # Refactored columns away from Dewpoint metrics toward Relative Humidity trackers
     headers = [
         'valid_time', 'TdAI Run Time (UTC)', 'TdAI Status', 'NBM Temperature (F)', 'NBM RH (%)', 
-        'NBM Dewpoint (F)', 'TdAI Predicted Bias (F)', 'TdAI Corrected Dewpoint (F)', 
-        'ASOS Ground Truth Dewpoint (F)', 'Raw NBM Error (F)', 'Post TdAI Error (F)', 'TdAI Skill Score (%)'
+        'TdAI Predicted Bias (F)', 'TdAI Corrected RH (%)', 
+        'ASOS Ground Truth RH (%)', 'Raw NBM Error (F)', 'Post TdAI Error (F)', 'TdAI Skill Score (%)'
     ]
     
     if os.path.exists(output_csv_path):
         combined_log_df = pd.read_csv(output_csv_path)
-        # Ensure all columns exist
         for col in headers:
             if col not in combined_log_df.columns:
                 combined_log_df[col] = np.nan
@@ -363,51 +359,42 @@ def main():
 
     current_time_utc = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
 
-    # Append today's new forecast row with placeholders or explicit data depending on threshold gate
     new_rows_list = []
     for idx in range(len(master_input_df)):
         row_data = master_input_df.iloc[idx]
         forecast_valid_time = row_data['valid_time']
         
-        # 🛡️ THE MASK GUARD: Separate the columns based on whether the row passed or failed
         if threshold_mask[idx]:
-            # This day is ACTIVE: Log every single metric and the model corrections
             log_row = {
                 'valid_time': forecast_valid_time.strftime('%Y-%m-%d %H:%M:%S'),
                 'TdAI Run Time (UTC)': current_time_utc.strftime('%Y-%m-%d %H:%M UTC'),
-                'TdAI Status': row_data['TdAI Status'],  # Will log "Active"
+                'TdAI Status': row_data['TdAI Status'],
                 'NBM Temperature (F)': row_data['NBM Temperature (F)'],
                 'NBM RH (%)': row_data['NBM RH (%)'],
-                'NBM Dewpoint (F)': row_data['NBM Dewpoint (F)'],
                 'TdAI Predicted Bias (F)': row_data['TdAI Predicted Bias (F)'],
-                'TdAI Corrected Dewpoint (F)': row_data['TdAI Corrected Dewpoint (F)'],
-                'ASOS Ground Truth Dewpoint (F)': np.nan, 
+                'TdAI Corrected RH (%)': row_data['TdAI Corrected RH (%)'],
+                'ASOS Ground Truth RH (%)': np.nan, 
                 'Raw NBM Error (F)': np.nan, 
                 'Post TdAI Error (F)': np.nan, 
                 'TdAI Skill Score (%)': np.nan
             }
         else:
-            # This day is BYPASSED: Log the status row to mark execution, 
-            # but leave the forecast metric values blank so they don't corrupt the ledger history.
             log_row = {
                 'valid_time': forecast_valid_time.strftime('%Y-%m-%d %H:%M:%S'),
                 'TdAI Run Time (UTC)': current_time_utc.strftime('%Y-%m-%d %H:%M UTC'),
-                'TdAI Status': row_data['TdAI Status'],  # Will log "Bypassed: Reason..."
-                'NBM Temperature (F)': np.nan,           # ✂️ Cleared out
-                'NBM RH (%)': np.nan,                    # ✂️ Cleared out
-                'NBM Dewpoint (F)': np.nan,                  # ✂️ Cleared out
+                'TdAI Status': row_data['TdAI Status'],
+                'NBM Temperature (F)': np.nan, 
+                'NBM RH (%)': np.nan, 
                 'TdAI Predicted Bias (F)': 0.0,
-                'TdAI Corrected Dewpoint (F)': np.nan,   # ✂️ Cleared out
-                'ASOS Ground Truth Dewpoint (F)': np.nan, 
+                'TdAI Corrected RH (%)': np.nan, 
+                'ASOS Ground Truth RH (%)': np.nan, 
                 'Raw NBM Error (F)': np.nan, 
                 'Post TdAI Error (F)': np.nan, 
                 'TdAI Skill Score (%)': np.nan
             }
             
         new_rows_list.append(log_row)
-    # -------------------------------------------------------------------------
-    # 🔄 OVERWRITE & DEDUPLICATION LOGIC
-    # -------------------------------------------------------------------------
+
     if new_rows_list:
         new_entry_df = pd.DataFrame(new_rows_list)
         new_entry_df['valid_time'] = pd.to_datetime(new_entry_df['valid_time']).dt.strftime('%Y-%m-%d %H:%M:%S')
@@ -415,74 +402,49 @@ def main():
         if not combined_log_df.empty:
             combined_log_df['valid_time'] = pd.to_datetime(combined_log_df['valid_time'], errors='coerce').dt.strftime('%Y-%m-%d %H:%M:%S')
             
-            # 🛡️ SECURITY CHECK: If an old row exists for this valid_time, pull forward its ASOS data
-            # This ensures that manually forced reruns don't erase yesterday's successful validations.
             for target_vtime in new_entry_df['valid_time']:
                 existing_match = combined_log_df[combined_log_df['valid_time'] == target_vtime]
                 if not existing_match.empty:
-                    old_asos = existing_match['ASOS Ground Truth Dewpoint (F)'].iloc[0]
-                    # If we already have real ground-truth data, preserve it in the fresh row
+                    old_asos = existing_match['ASOS Ground Truth RH (%)'].iloc[0]
                     if pd.notna(old_asos):
                         print(f"♻️ Preserving historical ASOS verification data found for {target_vtime}")
-                        new_entry_df.loc[new_entry_df['valid_time'] == target_vtime, 'ASOS Ground Truth Dewpoint (F)'] = old_asos
+                        new_entry_df.loc[new_entry_df['valid_time'] == target_vtime, 'ASOS Ground Truth RH (%)'] = old_asos
                         
-                        # Re-calculate the errors instantly for the updated forecast values
-                        r_nbm_err = new_entry_df.loc[new_entry_df['valid_time'] == target_vtime, 'NBM Dewpoint (F)'].values[0] - old_asos
-                        p_tdai_err = new_entry_df.loc[new_entry_df['valid_time'] == target_vtime, 'TdAI Corrected Dewpoint (F)'].values[0] - old_asos
+                        r_nbm_err = new_entry_df.loc[new_entry_df['valid_time'] == target_vtime, 'NBM RH (%)'].values[0] - old_asos
+                        p_tdai_err = new_entry_df.loc[new_entry_df['valid_time'] == target_vtime, 'TdAI Corrected RH (%)'].values[0] - old_asos
                         skill_score = (1.0 - (abs(p_tdai_err) / abs(r_nbm_err))) * 100 if abs(r_nbm_err) > 0 else 0.0
                         
                         new_entry_df.loc[new_entry_df['valid_time'] == target_vtime, 'Raw NBM Error (F)'] = round(r_nbm_err, 2)
                         new_entry_df.loc[new_entry_df['valid_time'] == target_vtime, 'Post TdAI Error (F)'] = round(p_tdai_err, 2)
                         new_entry_df.loc[new_entry_df['valid_time'] == target_vtime, 'TdAI Skill Score (%)'] = round(skill_score, 1)
 
-            # ✂️ PURGE: Delete any existing rows matching the target valid_times to prevent stacking
             target_valid_times = new_entry_df['valid_time'].tolist()
             combined_log_df = combined_log_df[~combined_log_df['valid_time'].isin(target_valid_times)]
 
-        # Append the clean, updated row to the ledger
         combined_log_df = pd.concat([combined_log_df, new_entry_df], ignore_index=True)
-
-        # Enforce chronological ordering so your web dashboard graphs map smoothly
         combined_log_df['valid_time'] = pd.to_datetime(combined_log_df['valid_time']).dt.strftime('%Y-%m-%d %H:%M:%S')
         
-        # 🧹 GLOBAL LEDGER DEEP CLEAN (Fixes historical stacking)
-        # 1. Sort by verification completeness so rows with valid ASOS data bubble to the bottom
-        combined_log_df = combined_log_df.sort_values(
-            by=['valid_time', 'ASOS Ground Truth Dewpoint (F)'], 
-            na_position='first'
-        )
-        # 2. Drop any historical duplicate valid_times globally, permanently keeping the one with verified data
+        combined_log_df = combined_log_df.sort_values(by=['valid_time', 'ASOS Ground Truth RH (%)'], na_position='first')
         combined_log_df = combined_log_df.drop_duplicates(subset=['valid_time'], keep='last')
-        
-        # 3. Final clean chronological sort for your web charts
         combined_log_df = combined_log_df.sort_values(by='valid_time').reset_index(drop=True)
         combined_log_df_dt = pd.to_datetime(combined_log_df['valid_time'])
 
-        # -------------------------------------------------------------------------
-        # 🔄 BULK RETROSPECTIVE VERIFICATION ENGINE (429 RATE-LIMIT PROOF)
-        # -------------------------------------------------------------------------
-        # Selects rows where ASOS is NaN, and the target valid hour has passed (plus a 15-minute transmission grace buffer)
-        missing_mask = combined_log_df['ASOS Ground Truth Dewpoint (F)'].isna() & (combined_log_df_dt + datetime.timedelta(minutes=15) <= current_time_utc)
+        # Fetch ASOS parameter key 'relh' (Relative Humidity) for retrospective clean alignment checks
+        missing_mask = combined_log_df['ASOS Ground Truth RH (%)'].isna() & (combined_log_df_dt + datetime.timedelta(minutes=15) <= current_time_utc)
         missing_indices = combined_log_df[missing_mask].index
 
         if len(missing_indices) > 0:
             print(f"\n🔄 Found {len(missing_indices)} historical rows awaiting real-time verification...")
-            
-            # Step 1: Isolate timestamps for missing rows to determine global min/max boundaries
             missing_vtimes = pd.to_datetime(combined_log_df.loc[missing_indices, 'valid_time'])
-            min_vtime = missing_vtimes.min()
-            max_vtime = missing_vtimes.max()
-            
-            # Pad window by 1 day on each side to handle boundary parameters safely
-            start_date = min_vtime - datetime.timedelta(days=1)
-            end_date = max_vtime + datetime.timedelta(days=1)
+            start_date = missing_vtimes.min() - datetime.timedelta(days=1)
+            end_date = missing_vtimes.max() + datetime.timedelta(days=1)
             
             print(f"📡 Pooling bulk ASOS data matrix from server registry: {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}...")
             
-            # Construct a single bulk URL string
+            # Swapped requested data query from 'dwpf' to 'relh'
             asos_url = (
                 f"https://mesonet.agron.iastate.edu/cgi-bin/request/asos.py?"
-                f"station=CAR&data=dwpf"
+                f"station=CAR&data=relh"
                 f"&year1={start_date.year}&month1={start_date.month}&day1={start_date.day}"
                 f"&year2={end_date.year}&month2={end_date.month}&day2={end_date.day}"
                 f"&tz=UTC&format=comma"
@@ -493,19 +455,13 @@ def main():
                 res = requests.get(asos_url, timeout=25)
                 if res.status_code == 200:
                     bulk_asos_df = pd.read_csv(io.StringIO(res.text), comment='#')
-                    if not bulk_asos_df.empty and 'dwpf' in bulk_asos_df.columns:
+                    if not bulk_asos_df.empty and 'relh' in bulk_asos_df.columns:
                         bulk_asos_df['valid_dt'] = pd.to_datetime(bulk_asos_df['valid'])
-                        # Standardize dates into rounded strings for perfect local matrix joining
                         bulk_asos_df['rounded_valid_time_str'] = bulk_asos_df['valid_dt'].dt.round('h').dt.strftime('%Y-%m-%d %H:%M:%S')
                         print("   ✅ Bulk observation database compiled and cached locally in workflow memory.")
-                    else:
-                        print("   ⚠️ Pooled ASOS observation table returned empty rows.")
-                else:
-                    print(f"   ❌ Mesonet bulk server handshake failure (Status: {res.status_code})")
             except Exception as e:
                 print(f"   ❌ Network latency during bulk dataset retrieval: {e}")
                 
-            # Step 2: Loop through missing indices LOCALLY using our pre-downloaded database cache
             if not bulk_asos_df.empty and 'rounded_valid_time_str' in bulk_asos_df.columns:
                 for idx in missing_indices:
                     v_time = pd.to_datetime(combined_log_df.loc[idx, 'valid_time'])
@@ -513,38 +469,31 @@ def main():
                     v_status = str(combined_log_df.loc[idx, 'TdAI Status']).strip()
                     
                     print(f"   └── Processing validation row for: {v_time.strftime('%Y-%m-%d %H:%M UTC')} [Status: {v_status}]")
-                    
-                    # Filter local dataframe cache using exact string matching loops
                     target_obs = bulk_asos_df[bulk_asos_df['rounded_valid_time_str'] == target_vtime_str].copy()
+                    
                     if not target_obs.empty:
-                        target_obs['dwpf_numeric'] = pd.to_numeric(target_obs['dwpf'], errors='coerce')
-                        valid_reports = target_obs.dropna(subset=['dwpf_numeric'])
+                        target_obs['relh_numeric'] = pd.to_numeric(target_obs['relh'], errors='coerce')
+                        valid_reports = target_obs.dropna(subset=['relh_numeric'])
                         
                         if not valid_reports.empty:
-                            asos_gt = float(valid_reports['dwpf_numeric'].iloc[0])
-                            combined_log_df.loc[idx, 'ASOS Ground Truth Dewpoint (F)'] = asos_gt
+                            asos_gt = float(valid_reports['relh_numeric'].iloc[0])
+                            combined_log_df.loc[idx, 'ASOS Ground Truth RH (%)'] = asos_gt
                             
-                            # 🧠 INTELLECTUAL CHECK: Only score models if the run was Active
                             if v_status == "Active":
-                                nbm_dew = float(combined_log_df.loc[idx, 'NBM Dewpoint (F)'])
-                                tdai_dew = float(combined_log_df.loc[idx, 'TdAI Corrected Dewpoint (F)'])
+                                nbm_rh = float(combined_log_df.loc[idx, 'NBM RH (%)'])
+                                tdai_rh = float(combined_log_df.loc[idx, 'TdAI Corrected RH (%)'])
                                 
-                                r_nbm_err = nbm_dew - asos_gt
-                                p_tdai_err = tdai_dew - asos_gt
+                                r_nbm_err = nbm_rh - asos_gt
+                                p_tdai_err = tdai_rh - asos_gt
                                 skill_score = (1.0 - (abs(p_tdai_err) / abs(r_nbm_err))) * 100 if abs(r_nbm_err) > 0 else 0.0
                                 
                                 combined_log_df.loc[idx, 'Raw NBM Error (F)'] = round(r_nbm_err, 2)
                                 combined_log_df.loc[idx, 'Post TdAI Error (F)'] = round(p_tdai_err, 2)
                                 combined_log_df.loc[idx, 'TdAI Skill Score (%)'] = round(skill_score, 1)
-                                print(f"       ✅ Active Row Validated! ASOS: {asos_gt}F | TdAI Skill: {round(skill_score, 1)}%")
+                                print(f"        ✅ Active Row Validated! ASOS: {asos_gt}% | TdAI Skill: {round(skill_score, 1)}%")
                             else:
-                                print(f"       📝 Bypassed Row Validated! Observed ASOS Dewpoint: {asos_gt}F (Calculations omitted).")
-                        else:
-                            print("       ⚠️ Observation record contains invalid or non-numeric elements.")
-                    else:
-                        print("       ⚠️ Target hour reporting timestamp missing from pooled data.")
+                                print(f"        ... Bypassed Row Validated! Observed ASOS RH: {asos_gt}% (Calculations omitted).")
 
-        # 💾 SAVE STEP: Write directly back to local repository file ledger
         combined_log_df.to_csv(output_csv_path, index=False)
 
 if __name__ == "__main__":
