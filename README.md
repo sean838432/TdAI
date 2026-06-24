@@ -1,5 +1,5 @@
 CHANGE LOG:
-1) Added new joblib files with new names. Still need to update naming conventions in yml file.
+1) Added new joblib files with new names.
 2) Updated TdAI_deterministic_operational.py and added TdAI_probabilistic_operational.py. These should work in theory.
 3) DID NOT update the html file
 
