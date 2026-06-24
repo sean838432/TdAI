@@ -1,3 +1,8 @@
+CHANGE LOG:
+1) Added new joblib files with new names. Still need to update naming conventions in yml file.
+2) Updated TdAI_deterministic_operational.py and added TdAI_probabilistic_operational.py. These should work in theory.
+3) DID NOT update the html file
+
 TdAI is an NBM postprocessing model that uses a Gradient Boosted Decision Tree (GBDT) algorithm to bias correct NBM dewpoint forecasts, particularly on dry, well-mixed days. Its output is designed to be used by NWS forecasters as a fire weather situational tool, giving them confidence to decrease the forecast dewpoint, and thus RH, well below guidance. The overall goal of TdAI is to improve the quality of the fire weather products and services the NWS provides to its fire partners.
 
 ---------------------
