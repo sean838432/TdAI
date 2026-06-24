@@ -282,7 +282,7 @@ def main():
         master_input_df['NBM RH (%)'] = master_input_df['rh_1000'].astype(float).round(1)
 
     doy = master_input_df['valid_time'].dt.dayofyear
-    master_input_df['sin_season'] = np.sin(2 * np.pi * doy / 3 warm.25)
+    master_input_df['sin_season'] = np.sin(2 * np.pi * doy / 365.25)
     master_input_df['cos_season'] = np.cos(2 * np.pi * doy / 365.25)
 
     # -------------------------------------------------------------------------
