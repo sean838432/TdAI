@@ -289,14 +289,14 @@ def main():
     # 🔮 SECTION 4: MACHINE LEARNING GBDT PREDICTION BIAS ENGINE (THRESHOLD GATED)
     # -------------------------------------------------------------------------
     # 🚀 UPDATED ARTIFACT PATHS TO TARGET RESOLVED DETERMINISTIC SCHEMAS
-    model_import_path = os.path.join(base_path, "tdai_deterministic_model.joblib") [cite: 330]
-    features_import_path = os.path.join(base_path, "deterministic_model_feature_schema.joblib") [cite: 330]
+    model_import_path = os.path.join(base_path, "tdai_deterministic_model.joblib")
+    features_import_path = os.path.join(base_path, "deterministic_model_feature_schema.joblib")
     
     if not (os.path.exists(model_import_path) and os.path.exists(features_import_path)):
         raise FileNotFoundError("❌ Core Model weights (.joblib) or schema trackers missing from repo root directory.")
         
-    live_model = joblib.load(model_import_path) [cite: 330]
-    trained_feature_order = joblib.load(features_import_path) [cite: 330]
+    live_model = joblib.load(model_import_path)
+    trained_feature_order = joblib.load(features_import_path)
 
     # Initialize destination columns matching updated feature profiles
     master_input_df['TdAI Predicted Bias (F)'] = 0.0
