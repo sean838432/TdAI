@@ -108,7 +108,7 @@ def main():
     
     # Cloud repository localized mapping pointing directly to central ledger file
     base_path = "./"
-    output_csv_path = os.path.join(base_path, "operational_log.csv")
+    output_csv_path = os.path.join(base_path, "TdAI_probabilistic_output.csv")
 
     # -------------------------------------------------------------------------
     # 🛰️ SECTION 1: CHOOSE AND DOWNLOAD THE MOST RECENT 12Z OR 00Z HRRR RUN
