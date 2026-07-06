@@ -316,11 +316,11 @@ def main():
     if not passing_rows.empty:
         X_live = passing_rows.set_index('valid_time') if 'valid_time' in passing_rows.columns else passing_rows.copy()
         # Enforce exact structural feature alignment sequence
-        X_live = X_live[trained_feature_order] [cite: 2]
+        X_live = X_live[trained_feature_order]
 
         # Loop through all ensemble models inside our dictionary structure
-        for q in quantiles: [cite: 3]
-            bias_predictions = prob_ensemble[q].predict(X_live) [cite: 3]
+        for q in quantiles:
+            bias_predictions = prob_ensemble[q].predict(X_live)
             master_input_df.loc[threshold_mask, f'TdAI_Predicted_Bias_{q}'] = np.round(bias_predictions, 1)
             master_input_df.loc[threshold_mask, f'TdAI_Corrected_Dewpoint_{q}'] = np.round(
                 master_input_df.loc[threshold_mask, 'NBM Dewpoint (F)'] - master_input_df.loc[threshold_mask, f'TdAI_Predicted_Bias_{q}'], 1
@@ -371,7 +371,7 @@ def main():
         }
         
         # Log data spectrum across all quantiles 
-        for q in quantiles: [cite: 3]
+        for q in quantiles:
             log_row[f'TdAI_Predicted_Bias_{q}'] = row_data[f'TdAI_Predicted_Bias_{q}']
             log_row[f'TdAI_Corrected_Dewpoint_{q}'] = row_data[f'TdAI_Corrected_Dewpoint_{q}'] if threshold_mask[idx] else np.nan
             
@@ -394,7 +394,7 @@ def main():
                         
                         # Score verification strictly based on the 50th percentile (Median) 
                         r_nbm_err = new_entry_df.loc[new_entry_df['valid_time'] == target_vtime, 'NBM Dewpoint (F)'].values[0] - old_asos
-                        p_tdai_err = new_entry_df.loc[new_entry_df['valid_time'] == target_vtime, 'TdAI_Corrected_Dewpoint_q50'].values[0] - old_asos [cite: 3]
+                        p_tdai_err = new_entry_df.loc[new_entry_df['valid_time'] == target_vtime, 'TdAI_Corrected_Dewpoint_q50'].values[0] - old_asos
                         skill_score = (1.0 - (abs(p_tdai_err) / abs(r_nbm_err))) * 100 if abs(r_nbm_err) > 0 else 0.0
                         
                         new_entry_df.loc[new_entry_df['valid_time'] == target_vtime, 'Raw NBM Error (F)'] = round(r_nbm_err, 2)
@@ -459,7 +459,7 @@ def main():
                             
                             if v_status == "Active":
                                 nbm_dew = float(combined_log_df.loc[idx, 'NBM Dewpoint (F)'])
-                                tdai_dew = float(combined_log_df.loc[idx, 'TdAI_Corrected_Dewpoint_q50']) [cite: 3]
+                                tdai_dew = float(combined_log_df.loc[idx, 'TdAI_Corrected_Dewpoint_q50'])
                                 
                                 r_nbm_err = nbm_dew - asos_gt
                                 p_tdai_err = tdai_dew - asos_gt
