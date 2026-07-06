@@ -36,8 +36,10 @@ jobs:
       - name: Execute TdAI Probabilistic Model Run
         run: python TdAI_probabilistic_operational.py
 
-      - name: Commit and Push Updated CSV Ledger Back to Repository
-        uses: stefanzweifel/git-auto-commit-action@v5
-        with:
-          commit_message: "Automated Data Update: TdAI Core Matrix Appended"
-          file_pattern: "operational_log.csv"
+      - name: Commit and Push Updated Ledgers
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add operational_log.csv operational_probabilistic_log.csv
+          git commit -m "Sync daily deterministic and probabilistic operational logs [Skip CI]" || echo "No changes to commit"
+          git push origin feature/probabilistic-upgrade
