@@ -40,6 +40,12 @@ jobs:
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
-          git add TdAI_deterministic_output.csv TdAI_probabilistic_output.csv
-          git commit -m "Sync daily deterministic and probabilistic output logs [Skip CI]" || echo "No changes to commit"
-          git push origin feature/probabilistic-upgrade
+          
+          # Safely stage the logs if they exist
+          git add TdAI_deterministic_output.csv 2>/dev/null || echo "Deterministic log not found"
+          git add TdAI_probabilistic_output.csv 2>/dev/null || echo "Probabilistic log not found"
+          
+          git commit -m "Sync daily deterministic and probabilistic operational logs [Skip CI]" || echo "No changes to commit"
+          
+          # 🚀 FIX: Dynamically match the detached HEAD to the current branch name
+          git push origin HEAD:${{ github.ref_name }}
