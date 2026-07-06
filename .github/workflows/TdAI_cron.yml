@@ -40,6 +40,6 @@ jobs:
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
-          git add operational_log.csv operational_probabilistic_log.csv
-          git commit -m "Sync daily deterministic and probabilistic operational logs [Skip CI]" || echo "No changes to commit"
+          git add TdAI_deterministic_output.csv TdAI_probabilistic_output.csv
+          git commit -m "Sync daily deterministic and probabilistic output logs [Skip CI]" || echo "No changes to commit"
           git push origin feature/probabilistic-upgrade
