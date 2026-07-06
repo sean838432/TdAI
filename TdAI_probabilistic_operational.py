@@ -275,17 +275,17 @@ def main():
     # -------------------------------------------------------------------------
     # 🔮 SECTION 4: PROBABILISTIC QUANTILE MULTI-PREDICTION ENGINE
     # -------------------------------------------------------------------------
-    model_import_path = os.path.join(base_path, "tdai_probabilistic_models.joblib") [cite: 3]
-    features_import_path = os.path.join(base_path, "probabilistic_model_feature_schema.joblib") [cite: 2]
+    model_import_path = os.path.join(base_path, "tdai_probabilistic_models.joblib")
+    features_import_path = os.path.join(base_path, "probabilistic_model_feature_schema.joblib")
     
     if not (os.path.exists(model_import_path) and os.path.exists(features_import_path)):
         raise FileNotFoundError("❌ Probabilistic ensemble assets or schema configuration missing from repository root.")
         
-    prob_ensemble = joblib.load(model_import_path) [cite: 3]
-    trained_feature_order = joblib.load(features_import_path) [cite: 2]
+    prob_ensemble = joblib.load(model_import_path)
+    trained_feature_order = joblib.load(features_import_path)
 
     # Initialize data structures for all quantiles
-    quantiles = ['q10', 'q25', 'q50', 'q75', 'q90'] [cite: 3]
+    quantiles = ['q10', 'q25', 'q50', 'q75', 'q90']
     for q in quantiles:
         master_input_df[f'TdAI_Predicted_Bias_{q}'] = 0.0
         master_input_df[f'TdAI_Corrected_Dewpoint_{q}'] = master_input_df['NBM Dewpoint (F)'].astype(float).round(1)
