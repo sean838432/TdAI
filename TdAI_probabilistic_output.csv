@@ -1,3 +1,4 @@
 valid_time,TdAI Run Time (UTC),TdAI Status,NBM Temperature (F),NBM RH (%),TdAI_Predicted_Bias_q10,TdAI_Corrected_RH_q10,TdAI_Predicted_Bias_q25,TdAI_Corrected_RH_q25,TdAI_Predicted_Bias_q50,TdAI_Corrected_RH_q50,TdAI_Predicted_Bias_q75,TdAI_Corrected_RH_q75,TdAI_Predicted_Bias_q90,TdAI_Corrected_RH_q90,ASOS Ground Truth RH (%),Raw NBM Error (F),Post TdAI Median Error (F),TdAI Median Skill Score (%)
 2026-07-06 21:00:00,2026-07-06 21:55 UTC,Active,79,38.7,-0.6,39.3,0.5,38.2,2.8,35.9,4.5,34.2,6.1,32.6,31.41,7.29,4.49,38.4
-2026-07-07 21:00:00,2026-07-06 21:55 UTC,Active,81,38.7,-2.8,41.5,-0.5,39.2,1.7,37.0,3.5,35.2,5.4,33.3,,,,
+2026-07-07 21:00:00,2026-07-07 15:00 UTC,Active,82,37.0,-0.4,37.4,0.6,36.4,2.9,34.1,4.7,32.3,6.1,30.9,,,,
+2026-07-08 21:00:00,2026-07-07 15:00 UTC,Active,83,33.0,-1.8,34.8,1.1,31.9,3.3,29.7,5.0,28.0,8.0,25.0,,,,
