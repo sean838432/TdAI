@@ -15,7 +15,7 @@
     <header class="mb-6 border-b border-slate-800 pb-6 flex flex-col md:flex-row justify-between items-center gap-4 text-center md:text-left">
       <div>
         <h1 class="text-3xl md:text-4xl font-black text-white tracking-tight">
-          TdAI Dashboard
+          <span class="text-emerald-400">Td</span>AI <span class="text-slate-300 font-bold">Dashboard</span>
         </h1>
         <p id="meta-timestamps" class="text-base text-slate-400 mt-3 italic font-medium tracking-wide">
           Connecting to local repository data matrix stream...
@@ -41,94 +41,125 @@
 
     <div id="error-banner" class="hidden mb-8 p-5 bg-red-950/40 border-l-4 border-red-500 text-red-300 font-medium rounded-lg shadow-md border border-red-900/30"></div>
 
-    <main class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+    <main class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
       
+      <!-- COMPRESSED KCAR CARD -->
       <div id="card-KCAR" class="bg-slate-800 rounded-2xl shadow-xl border border-slate-700/60 overflow-hidden transition-all duration-300 flex flex-col justify-between">
         <div>
-          <div class="bg-slate-900 px-6 py-4 border-b border-slate-700/50 text-white font-extrabold text-lg tracking-wide flex justify-between items-center">
+          <div class="bg-slate-900 px-5 py-3 border-b border-slate-700/50 text-white font-extrabold text-lg tracking-wide flex justify-between items-center">
             <span class="flex items-center gap-2">
-              <span class="text-2xl font-black text-white">KCAR</span> 
+              <span class="text-xl font-black text-white">KCAR</span> 
             </span>
           </div>
           
-          <div class="p-6 space-y-5">
-            <div id="kcar-data-view" class="space-y-5">
-              <div class="text-slate-400 text-base font-medium bg-slate-900/30 p-4 rounded-xl border border-slate-700/30">
-                <span class="block text-[11px] uppercase text-slate-500 calendar font-black tracking-widest mb-1">NBM Baseline</span>
-                <div class="text-slate-300 font-bold text-xl">
+          <div class="p-4 space-y-3">
+            <div id="kcar-data-view" class="space-y-3">
+              <div class="text-slate-400 text-sm font-medium bg-slate-900/30 p-3 rounded-xl border border-slate-700/30">
+                <span class="block text-[11px] uppercase text-slate-500 font-black tracking-widest mb-0.5">NBM Baseline</span>
+                <div class="text-slate-300 font-bold text-lg">
                   <span id="kcar-nbm-dew">--.-°F</span>
-                  <span class="text-slate-600 mx-2 font-normal">/</span>
-                  <span id="kcar-nbm-rh" class="text-slate-400 text-lg">--% RH</span>
+                  <span class="text-slate-600 mx-1.5 font-normal">/</span>
+                  <span id="kcar-nbm-rh" class="text-slate-400 text-base">--% RH</span>
                 </div>
               </div>
               
-              <div class="bg-slate-900/40 p-4 rounded-xl border border-slate-700/30 flex justify-between items-center">
+              <div class="bg-slate-900/40 p-3 rounded-xl border border-slate-700/30 flex justify-between items-center">
                 <div>
-                  <span class="block text-[11px] text-indigo-400 font-black tracking-widest mb-1">TdAI FORECAST</span>
-                  <div class="text-white font-black text-2xl tracking-tight">
+                  <span class="block text-[11px] text-indigo-400 font-black tracking-widest mb-0.5">TdAI DETERMINISTIC FORECAST</span>
+                  <div class="text-white font-black text-xl tracking-tight">
                     <span id="kcar-tdai-dew">--.-°F</span>
-                    <span class="text-indigo-500 font-normal text-lg mx-1.5">/</span>
-                    <span id="kcar-tdai-rh" class="text-indigo-200 font-bold text-xl">--% RH</span>
+                    <span class="text-indigo-500 font-normal text-base mx-1">/</span>
+                    <span id="kcar-tdai-rh" class="text-indigo-200 font-bold text-lg">--% RH</span>
                   </div>
                 </div>
-                <div id="kcar-badge" class="px-3 py-1.5 rounded-lg text-center font-black text-sm border min-w-[75px] bg-slate-900 text-slate-400 border-slate-700">
+                <div id="kcar-badge" class="px-2.5 py-1 rounded-lg text-center font-black text-xs border min-w-[65px] bg-slate-900 text-slate-400 border-slate-700">
                   --.-°F
                 </div>
               </div>
 
-              <div id="kcar-verification-panel" class="hidden bg-indigo-950/20 border border-indigo-500/20 rounded-xl p-4 space-y-3">
-                <span class="block text-[11px] text-indigo-400 font-black tracking-widest border-b border-indigo-900/40 pb-1">TdAI VERIFICATION METRICS</span>
-                <div class="grid grid-cols-2 gap-3 text-sm">
+              <div id="kcar-probabilistic-panel" class="bg-slate-900/50 border border-slate-700/40 rounded-xl p-3.5 space-y-2">
+                <span class="block text-[11px] text-sky-400 font-black tracking-widest">TdAI PROBABILISTIC DISTRIBUTION</span>
+                
+                <div class="grid grid-cols-5 gap-0.5 text-center bg-slate-950/40 p-2 rounded-xl border border-slate-800 text-xs items-stretch">
+                  
+                  <div class="flex flex-col justify-between py-0.5 px-0.5">
+                    <span class="block text-[11px] font-bold text-slate-400 uppercase tracking-wider">10th</span>
+                    <span id="val-q10" class="text-sm font-mono font-bold text-slate-300 mt-0.5">--.-°</span>
+                  </div>
+                  
+                  <div class="flex flex-col justify-between py-0.5 px-0.5">
+                    <span class="block text-[11px] font-bold text-slate-400 uppercase tracking-wider">25th</span>
+                    <span id="val-q25" class="text-sm font-mono font-bold text-slate-300 mt-0.5">--.-°</span>
+                  </div>
+                  
+                  <div class="bg-sky-950/20 py-0.5 px-0.5 rounded border border-sky-900/30 flex flex-col justify-between shadow-inner">
+                    <span class="block text-[11px] font-black text-sky-400 uppercase tracking-wider">Median</span>
+                    <span id="val-q50" class="text-sm font-mono font-black text-white mt-0.5">--.-°</span>
+                  </div>
+                  
+                  <div class="flex flex-col justify-between py-0.5 px-0.5">
+                    <span class="block text-[11px] font-bold text-slate-400 uppercase tracking-wider">75th</span>
+                    <span id="val-q75" class="text-sm font-mono font-bold text-slate-300 mt-0.5">--.-°</span>
+                  </div>
+                  
+                  <div class="flex flex-col justify-between py-0.5 px-0.5">
+                    <span class="block text-[11px] font-bold text-slate-400 uppercase tracking-wider">90th</span>
+                    <span id="val-q90" class="text-sm font-mono font-bold text-slate-300 mt-0.5">--.-°</span>
+                  </div>
+                  
+                </div>
+              </div>
+
+              <div id="kcar-verification-panel" class="hidden bg-indigo-950/20 border border-indigo-500/20 rounded-xl p-3 space-y-2">
+                <span class="block text-[10px] text-indigo-400 font-black tracking-widest border-b border-indigo-900/40 pb-0.5">TdAI RETROSPECTIVE VERIFICATION</span>
+                <div class="grid grid-cols-2 gap-2 text-xs">
                   <div>
-                    <span class="text-slate-500 text-xs block">ASOS Ground Truth:</span>
-                    <span id="v-asos-dew" class="font-bold text-white text-base">--.-°F</span>
+                    <span class="text-slate-500 text-[10px] block">ASOS Ground Truth:</span>
+                    <span id="v-asos-dew" class="font-bold text-white text-sm">--.-°F</span>
                   </div>
                   <div>
-                    <span class="text-slate-500 text-xs block">TdAI Skill Score:</span>
-                    <span id="v-skill-score" class="font-extrabold text-base">--.-%</span>
+                    <span class="text-slate-500 text-[10px] block">TdAI Median Skill:</span>
+                    <span id="v-skill-score" class="font-extrabold text-sm">--.-%</span>
                   </div>
                   <div>
-                    <span class="text-slate-500 text-xs block">Original NBM Error:</span>
+                    <span class="text-slate-500 text-[10px] block">Original NBM Error:</span>
                     <span id="v-nbm-err" class="font-medium text-slate-300">--.-°F</span>
                   </div>
                   <div>
-                    <span class="text-slate-500 text-xs block">Post TdAI Error:</span>
+                    <span class="text-slate-500 text-[10px] block">Post TdAI Error:</span>
                     <span id="v-tdai-err" class="font-medium text-slate-300">--.-°F</span>
                   </div>
                 </div>
               </div>
             </div>
 
-            <div id="kcar-empty-view" class="hidden py-12 text-center text-slate-400 font-bold italic text-sm bg-slate-900/20 border border-slate-800/60 rounded-xl">
+            <div id="kcar-empty-view" class="hidden py-8 text-center text-slate-400 font-bold italic text-xs bg-slate-900/20 border border-slate-800/60 rounded-xl">
               No Data Available
             </div>
           </div>
         </div>
       </div>
 
-      <div class="bg-slate-800/10 rounded-2xl border-2 border-dashed border-slate-800 p-8 flex flex-col justify-center items-center text-center opacity-50 min-h-[260px]">
-        <div class="text-slate-600 font-black text-xl tracking-wider">K40B</div>
-        <div class="text-xs font-bold text-slate-600 uppercase tracking-widest mt-2 bg-slate-900/50 px-3 py-1 rounded-md border border-slate-800/30">Coming Soon</div>
+      <!-- COMING SOON CARDS (Lowered standard height to match the new compressed active card context) -->
+      <div class="bg-slate-800/10 rounded-2xl border-2 border-dashed border-slate-800 p-6 flex flex-col justify-center items-center text-center opacity-50 min-h-[220px]">
+        <div class="text-slate-600 font-black text-lg tracking-wider">K40B</div>
+        <div class="text-[10px] font-bold text-slate-600 uppercase tracking-widest mt-1.5 bg-slate-900/50 px-2.5 py-0.5 rounded-md border border-slate-800/30">Coming Soon</div>
       </div>
-
-      <div class="bg-slate-800/10 rounded-2xl border-2 border-dashed border-slate-800 p-8 flex flex-col justify-center items-center text-center opacity-50 min-h-[260px]">
-        <div class="text-slate-600 font-black text-xl tracking-wider">KGNR</div>
-        <div class="text-xs font-bold text-slate-600 uppercase tracking-widest mt-2 bg-slate-900/50 px-3 py-1 rounded-md border border-slate-800/30">Coming Soon</div>
+      <div class="bg-slate-800/10 rounded-2xl border-2 border-dashed border-slate-800 p-6 flex flex-col justify-center items-center text-center opacity-50 min-h-[220px]">
+        <div class="text-slate-600 font-black text-lg tracking-wider">KGNR</div>
+        <div class="text-[10px] font-bold text-slate-600 uppercase tracking-widest mt-1.5 bg-slate-900/50 px-2.5 py-0.5 rounded-md border border-slate-800/30">Coming Soon</div>
       </div>
-
-      <div class="bg-slate-800/10 rounded-2xl border-2 border-dashed border-slate-800 p-8 flex flex-col justify-center items-center text-center opacity-50 min-h-[260px]">
-        <div class="text-slate-600 font-black text-xl tracking-wider">KMLT</div>
-        <div class="text-xs font-bold text-slate-600 uppercase tracking-widest mt-2 bg-slate-900/50 px-3 py-1 rounded-md border border-slate-800/30">Coming Soon</div>
+      <div class="bg-slate-800/10 rounded-2xl border-2 border-dashed border-slate-800 p-6 flex flex-col justify-center items-center text-center opacity-50 min-h-[220px]">
+        <div class="text-slate-600 font-black text-lg tracking-wider">KMLT</div>
+        <div class="text-[10px] font-bold text-slate-600 uppercase tracking-widest mt-1.5 bg-slate-900/50 px-2.5 py-0.5 rounded-md border border-slate-800/30">Coming Soon</div>
       </div>
-
-      <div class="bg-slate-800/10 rounded-2xl border-2 border-dashed border-slate-800 p-8 flex flex-col justify-center items-center text-center opacity-50 min-h-[260px]">
-        <div class="text-slate-600 font-black text-xl tracking-wider">KBGR</div>
-        <div class="text-xs font-bold text-slate-600 uppercase tracking-widest mt-2 bg-slate-900/50 px-3 py-1 rounded-md border border-slate-800/30">Coming Soon</div>
+      <div class="bg-slate-800/10 rounded-2xl border-2 border-dashed border-slate-800 p-6 flex flex-col justify-center items-center text-center opacity-50 min-h-[220px]">
+        <div class="text-slate-600 font-black text-lg tracking-wider">KBGR</div>
+        <div class="text-[10px] font-bold text-slate-600 uppercase tracking-widest mt-1.5 bg-slate-900/50 px-2.5 py-0.5 rounded-md border border-slate-800/30">Coming Soon</div>
       </div>
-
-      <div class="bg-slate-800/10 rounded-2xl border-2 border-dashed border-slate-800 p-8 flex flex-col justify-center items-center text-center opacity-50 min-h-[260px]">
-        <div class="text-slate-600 font-black text-xl tracking-wider">KBHB</div>
-        <div class="text-xs font-bold text-slate-600 uppercase tracking-widest mt-2 bg-slate-900/50 px-3 py-1 rounded-md border border-slate-800/30">Coming Soon</div>
+      <div class="bg-slate-800/10 rounded-2xl border-2 border-dashed border-slate-800 p-6 flex flex-col justify-center items-center text-center opacity-50 min-h-[220px]">
+        <div class="text-slate-600 font-black text-lg tracking-wider">KBHB</div>
+        <div class="text-[10px] font-bold text-slate-600 uppercase tracking-widest mt-1.5 bg-slate-900/50 px-2.5 py-0.5 rounded-md border border-slate-800/30">Coming Soon</div>
       </div>
 
     </main>
@@ -143,142 +174,168 @@
     });
 
     function fetchDashboardDataFromCSV() {
-      fetch('./operational_log.csv', { cache: "no-store" })
-        .then(response => {
-          if (!response.ok) {
-            throw new Error("Operational Failure: Could not locate 'operational_log.csv' database file inside the repository.");
-          }
-          return response.text();
-        })
-        .then(csvText => {
-          parseAndInitializePayload(csvText);
-        })
-        .catch(error => {
-          handleCriticalError(error.message);
-        });
+      Promise.all([
+        fetch('./TdAI_deterministic_output.csv', { cache: "no-store" }).then(res => res.text()),
+        fetch('./TdAI_probabilistic_output.csv', { cache: "no-store" }).then(res => res.text())
+      ])
+      .then(([detText, probText]) => {
+        parseAndInitializePayload(detText, probText);
+      })
+      .catch(error => {
+        handleCriticalError("Operational Failure: Could not synchronize with database stream objects. Check repository file logs.");
+      });
     }
 
-    function parseAndInitializePayload(text) {
-      const lines = text.trim().split('\n');
-      if (lines.length < 2) {
-        handleCriticalError("Standby: Local repository data ledger is currently empty or unformatted.");
+    function parseAndInitializePayload(detText, probText) {
+      const detLines = detText.trim().split('\n');
+      const probLines = probText.trim().split('\n');
+      
+      if (detLines.length < 2) {
+        handleCriticalError("Standby: Local data ledger is empty or processing unformatted variables.");
         return;
       }
 
-      const headers = parseCSVLine(lines[0]);
+      const detHeaders = parseCSVLine(detLines[0]);
+      const probHeaders = parseCSVLine(probLines[0]);
       
-      const idxValidTime = headers.indexOf('valid_time');
-      const idxTdaiStatus = headers.indexOf('TdAI Status');  
-      const idxNbmTemp   = headers.indexOf('NBM Temperature (F)');
-      const idxNbmDew    = headers.indexOf('NBM Dewpoint (F)');
-      const idxNbmRh     = headers.indexOf('NBM RH (%)');
-      const idxTdaiDew   = headers.indexOf('TdAI Corrected Dewpoint (F)');
-      const idxRunTime   = headers.indexOf('TdAI Run Time (UTC)');
-      const idxAsosDew   = headers.indexOf('ASOS Ground Truth Dewpoint (F)');
-      const idxNbmErr    = headers.indexOf('Raw NBM Error (F)');
-      const idxTdaiErr   = headers.indexOf('Post TdAI Error (F)');
-      const idxSkill     = headers.indexOf('TdAI Skill Score (%)');
+      const idxValidTime = detHeaders.indexOf('valid_time');
+      const idxTdaiStatus = detHeaders.indexOf('TdAI Status');  
+      const idxNbmTemp   = detHeaders.indexOf('NBM Temperature (F)');
+      const idxNbmDew    = detHeaders.indexOf('NBM Dewpoint (F)');
+      const idxNbmRh     = detHeaders.indexOf('NBM RH (%)');
+      const idxTdaiDew   = detHeaders.indexOf('TdAI Corrected Dewpoint (F)');
+      const idxRunTime   = detHeaders.indexOf('TdAI Run Time (UTC)');
+      const idxAsosDew   = detHeaders.indexOf('ASOS Ground Truth Dewpoint (F)');
+      const idxNbmErr    = detHeaders.indexOf('Raw NBM Error (F)');
+      const idxTdaiErr   = detHeaders.indexOf('Post TdAI Error (F)');
+      const idxSkill     = detHeaders.indexOf('TdAI Skill Score (%)');
 
-      const now = new Date();
-      const todayMidnight = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+      const idxPValidTime = probHeaders.indexOf('valid_time');
+      const idxPq10 = probHeaders.indexOf('TdAI_Corrected_Dewpoint_q10');
+      const idxPq25 = probHeaders.indexOf('TdAI_Corrected_Dewpoint_q25');
+      const idxPq50 = probHeaders.indexOf('TdAI_Corrected_Dewpoint_q50');
+      const idxPq75 = probHeaders.indexOf('TdAI_Corrected_Dewpoint_q75');
+      const idxPq90 = probHeaders.indexOf('TdAI_Corrected_Dewpoint_q90');
 
       const tabDataMap = {
         'day1': null, 'day2': null, 'day_minus1': null, 
         'day_minus2': null, 'day_minus3': null, 'day_minus4': null, 'day_minus5': null
       };
 
-      for (let i = lines.length - 1; i >= 1; i--) {
-        if (!lines[i].trim()) continue;
-        const row = parseCSVLine(lines[i]);
+      const probLookup = {};
+      for (let j = 1; j < probLines.length; j++) {
+        if (!probLines[j].trim()) continue;
+        const pRow = parseCSVLine(probLines[j]);
+        if (pRow[idxPValidTime]) {
+          probLookup[pRow[idxPValidTime].replace(/"/g, '').trim()] = pRow;
+        }
+      }
+
+      const validRows = [];
+      for (let i = 1; i < detLines.length; i++) {
+        if (detLines[i].trim()) validRows.push(parseCSVLine(detLines[i]));
+      }
+
+      validRows.sort((a, b) => a[idxValidTime].localeCompare(b[idxValidTime]));
+      const totalRecords = validRows.length;
+      
+      if (totalRecords > 0) tabDataMap['day1'] = processRowData(validRows[totalRecords - 1]);
+      if (totalRecords > 1) tabDataMap['day2'] = processRowData(validRows[totalRecords - 2]);
+      if (totalRecords > 2) tabDataMap['day_minus1'] = processRowData(validRows[totalRecords - 3]);
+      if (totalRecords > 3) tabDataMap['day_minus2'] = processRowData(validRows[totalRecords - 4]);
+      if (totalRecords > 4) tabDataMap['day_minus3'] = processRowData(validRows[totalRecords - 5]);
+      if (totalRecords > 5) tabDataMap['day_minus4'] = processRowData(validRows[totalRecords - 6]);
+      if (totalRecords > 6) tabDataMap['day_minus5'] = processRowData(validRows[totalRecords - 7]);
+
+      function processRowData(row) {
         const rowValidTimeStr = row[idxValidTime];
-        if (!rowValidTimeStr) continue;
-
         const cleanTimeStr = rowValidTimeStr.replace(/"/g, '').trim();
-        const datePart = cleanTimeStr.split(' ')[0];
-        const timePart = cleanTimeStr.split(' ')[1] || "00:00:00";
-        const dateParts = datePart.split('-');
-        const timeParts = timePart.split(':');
+        const statusText = (idxTdaiStatus !== -1 && row[idxTdaiStatus]) ? row[idxTdaiStatus].replace(/"/g, '').trim() : "Active";
+        const isBypassed = statusText !== "Active" && statusText !== "";
 
-        const validDate = new Date(Date.UTC(
-          parseInt(dateParts[0]),
-          parseInt(dateParts[1]) - 1,
-          parseInt(dateParts[2]),
-          parseInt(timeParts[0] || 0),
-          parseInt(timeParts[1] || 0),
-          parseInt(timeParts[2] || 0)
-        ));
+        const nbmTemp = parseFloat(row[idxNbmTemp]);
+        const nbmDew  = parseFloat(row[idxNbmDew]);
+        const nbmRh   = parseFloat(row[idxNbmRh]);
+        const tdaiDew = parseFloat(row[idxTdaiDew]);
+        const rowRunTimeStr = row[idxRunTime] ? row[idxRunTime].replace(/"/g, '').trim() : "N/A";
 
-        const rowMidnight = new Date(Date.UTC(validDate.getUTCFullYear(), validDate.getUTCMonth(), validDate.getUTCDate()));
-        
-        const timeDiff = rowMidnight.getTime() - todayMidnight.getTime();
-        const dayDelta = Math.round(timeDiff / (1000 * 60 * 60 * 24));
+        const matchingProbRow = probLookup[cleanTimeStr];
 
-        let tabKey = null;
-        if (dayDelta === 0) tabKey = 'day1';
-        else if (dayDelta === 1) tabKey = 'day2';
-        else if (dayDelta === -1) tabKey = 'day_minus1';
-        else if (dayDelta === -2) tabKey = 'day_minus2';
-        else if (dayDelta === -3) tabKey = 'day_minus3';
-        else if (dayDelta === -4) tabKey = 'day_minus4';
-        else if (dayDelta === -5) tabKey = 'day_minus5';
+        let parsedRowObj = {
+          validTimeStr: cleanTimeStr.substring(0, 16),
+          runTimeStr: rowRunTimeStr,
+          status: statusText,
+          isBypassed: isBypassed,
+          nbmDew: isNaN(nbmDew) ? "--.-" : nbmDew.toFixed(1),
+          nbmRh: "--", // 🔄 Adjusted to strict default string fallback
+          tdaiDew: isNaN(tdaiDew) ? "--.-" : tdaiDew.toFixed(1),
+          tdaiRh: "--",
+          delta: "--.-",
+          deltaValue: 0.0,
+          isVerified: false,
+          verification: { asosDew: null, nbmErr: null, tdaiErr: null, skillScore: null },
+          probabilistic: { q10: null, q25: null, q50: null, q75: null, q90: null }
+        };
 
-        if (tabKey && !tabDataMap[tabKey]) {
-          const statusText = (idxTdaiStatus !== -1 && row[idxTdaiStatus]) ? row[idxTdaiStatus].replace(/"/g, '').trim() : "Active";
-          
-          // 🛡️ REWRITTEN CRITERIA: A row is bypassed if its status text is anything other than "Active" or blank
-          const isBypassed = statusText !== "Active" && statusText !== "";
+        if (matchingProbRow) {
+          parsedRowObj.probabilistic.q10 = parseFloat(matchingProbRow[idxPq10]);
+          parsedRowObj.probabilistic.q25 = parseFloat(matchingProbRow[idxPq25]);
+          parsedRowObj.probabilistic.q50 = parseFloat(matchingProbRow[idxPq50]);
+          parsedRowObj.probabilistic.q75 = parseFloat(matchingProbRow[idxPq75]);
+          parsedRowObj.probabilistic.q90 = parseFloat(matchingProbRow[idxPq90]);
+        }
 
-          const nbmTemp = parseFloat(row[idxNbmTemp]);
-          const nbmDew  = parseFloat(row[idxNbmDew]);
-          const nbmRh   = parseFloat(row[idxNbmRh]);
-          const tdaiDew = parseFloat(row[idxTdaiDew]);
-          const rowRunTimeStr = row[idxRunTime] ? row[idxRunTime].replace(/"/g, '').trim() : "N/A";
+        if (!isBypassed) {
+          const tempF = !isNaN(nbmTemp) ? nbmTemp : null;
+          const nbmDewF = !isNaN(nbmDew) ? nbmDew : null;
+          const tdaiDewF = !isNaN(tdaiDew) ? tdaiDew : null;
 
-          let parsedRowObj = {
-            validTimeStr: cleanTimeStr.substring(0, 16),
-            runTimeStr: rowRunTimeStr,
-            status: statusText,
-            isBypassed: isBypassed,
-            nbmDew: isNaN(nbmDew) ? "--.-" : nbmDew.toFixed(1),
-            nbmRh: isNaN(nbmRh) ? "--" : nbmRh.toFixed(0),
-            tdaiDew: isNaN(tdaiDew) ? "--.-" : tdaiDew.toFixed(1),
-            tdaiRh: "--",
-            delta: "--.-",
-            deltaValue: 0.0,
-            isVerified: false,
-            verification: { asosDew: null, nbmErr: null, tdaiErr: null, skillScore: null }
-          };
-
-          if (!isBypassed) {
-            if (isNaN(nbmTemp) || isNaN(tdaiDew)) continue;
-
-            const tc = (nbmTemp - 32) * (5.0 / 9.0);
-            const tdc = (tdaiDew - 32) * (5.0 / 9.0);
+          // 🛡️ RE-ENGINEERED THERMODYNAMIC CALCULATION BLOCK
+          if (tempF !== null) {
+            // August-Roche-Magnus saturation vapor pressure context curves
+            const tc = (tempF - 32) * (5.0 / 9.0);
             const es = 6.112 * Math.exp((17.67 * tc) / (tc + 243.5));
-            const e = 6.112 * Math.exp((17.67 * tdc) / (tdc + 243.5));
-            const tdaiRh = Math.min(Math.max((e / es) * 100, 0.0), 100.0);
-            const delta = tdaiDew - nbmDew;
 
-            const hasAsos = row[idxAsosDew] !== "" && row[idxAsosDew] !== undefined && row[idxAsosDew] !== null && !isNaN(parseFloat(row[idxAsosDew]));
-            const asosDew = hasAsos ? parseFloat(row[idxAsosDew]) : null;
-            const nbmErr  = (row[idxNbmErr] !== "" && row[idxNbmErr] !== undefined) ? parseFloat(row[idxNbmErr]) : null;
-            const tdaiErr = (row[idxTdaiErr] !== "" && row[idxTdaiErr] !== undefined) ? parseFloat(row[idxTdaiErr]) : null;
-            const skill   = (row[idxSkill] !== "" && row[idxSkill] !== undefined) ? parseFloat(row[idxSkill]) : null;
+            // 1. Dynamic calculation for NBM Baseline RH
+            if (!isNaN(nbmRh)) {
+              parsedRowObj.nbmRh = nbmRh.toFixed(0);
+            } else if (nbmDewF !== null) {
+              const tdc_nbm = (nbmDewF - 32) * (5.0 / 9.0);
+              const e_nbm = 6.112 * Math.exp((17.67 * tdc_nbm) / (tdc_nbm + 243.5));
+              const calculatedNbmRh = Math.min(Math.max((e_nbm / es) * 100, 0.0), 100.0);
+              parsedRowObj.nbmRh = calculatedNbmRh.toFixed(0);
+            }
 
-            parsedRowObj.tdaiRh = tdaiRh.toFixed(0);
-            parsedRowObj.delta = delta.toFixed(1);
-            parsedRowObj.deltaValue = delta;
-            parsedRowObj.isVerified = hasAsos;
-            parsedRowObj.verification = {
-              asosDew: hasAsos ? asosDew.toFixed(1) : null,
-              nbmErr: (nbmErr !== null && !isNaN(nbmErr)) ? nbmErr.toFixed(1) : null,
-              tdaiErr: (tdaiErr !== null && !isNaN(tdaiErr)) ? tdaiErr.toFixed(1) : null,
-              skillScore: (skill !== null && !isNaN(skill)) ? skill.toFixed(1) : null
-            };
+            // 2. Dynamic calculation for TdAI Model RH
+            if (tdaiDewF !== null) {
+              const tdc_tdai = (tdaiDewF - 32) * (5.0 / 9.0);
+              const e_tdai = 6.112 * Math.exp((17.67 * tdc_tdai) / (tdc_tdai + 243.5));
+              const calculatedTdaiRh = Math.min(Math.max((e_tdai / es) * 100, 0.0), 100.0);
+              parsedRowObj.tdaiRh = calculatedTdaiRh.toFixed(0);
+            }
           }
 
-          tabDataMap[tabKey] = parsedRowObj;
+          const delta = (tdaiDewF !== null && nbmDewF !== null) ? tdaiDewF - nbmDewF : null;
+          if (delta !== null) {
+            parsedRowObj.delta = delta.toFixed(1);
+            parsedRowObj.deltaValue = delta;
+          }
+
+          const hasAsos = row[idxAsosDew] !== "" && row[idxAsosDew] !== undefined && row[idxAsosDew] !== null && !isNaN(parseFloat(row[idxAsosDew]));
+          const asosDew = hasAsos ? parseFloat(row[idxAsosDew]) : null;
+          const nbmErr  = (row[idxNbmErr] !== "" && row[idxNbmErr] !== undefined) ? parseFloat(row[idxNbmErr]) : null;
+          const tdaiErr = (row[idxTdaiErr] !== "" && row[idxTdaiErr] !== undefined) ? parseFloat(row[idxTdaiErr]) : null;
+          const skill   = (row[idxSkill] !== "" && row[idxSkill] !== undefined) ? parseFloat(row[idxSkill]) : null;
+
+          parsedRowObj.isVerified = hasAsos;
+          parsedRowObj.verification = {
+            asosDew: hasAsos ? asosDew.toFixed(1) : null,
+            nbmErr: (nbmErr !== null && !isNaN(nbmErr)) ? nbmErr.toFixed(1) : null,
+            tdaiErr: (tdaiErr !== null && !isNaN(tdaiErr)) ? tdaiErr.toFixed(1) : null,
+            skillScore: (skill !== null && !isNaN(skill)) ? skill.toFixed(1) : null
+          };
         }
+        return parsedRowObj;
       }
 
       globalTabsDataset = tabDataMap;
@@ -318,6 +375,7 @@
       const dataView = document.getElementById('kcar-data-view');
       const emptyView = document.getElementById('kcar-empty-view');
       const metaRow = document.getElementById('meta-timestamps');
+      const probPanel = document.getElementById('kcar-probabilistic-panel');
 
       if (!data) {
         dataView.classList.add('hidden');
@@ -327,22 +385,18 @@
         return;
       }
 
-      // 🛠️ CONDITIONAL VIEW SHIFT ENGINE
       if (data.isBypassed) {
         dataView.classList.add('hidden');
         emptyView.classList.remove('hidden');
         emptyView.innerHTML = `No Data Available <span class="block text-xs font-medium text-slate-500 mt-1 not-italic">TdAI Run Bypassed &rarr; ${data.status}</span>`;
-        
-        metaRow.innerHTML = 
-          `Valid Time: <span class="text-indigo-400 font-bold">${data.validTimeStr} UTC</span> &nbsp;|&nbsp; Pipeline Log: <span class="text-rose-400 font-black uppercase tracking-wider">${data.status}</span>`;
+        metaRow.innerHTML = `Valid Time: <span class="text-indigo-400 font-bold">${data.validTimeStr} UTC</span> &nbsp;|&nbsp; Pipeline Log: <span class="text-rose-400 font-black uppercase tracking-wider">${data.status}</span>`;
         return;
       }
 
       dataView.classList.remove('hidden');
       emptyView.classList.add('hidden');
 
-      metaRow.innerHTML = 
-        `Valid Time: <span class="text-indigo-400 font-bold">${data.validTimeStr} UTC</span> &nbsp;|&nbsp; Latest Model Run: <span class="text-slate-200 font-bold">${data.runTimeStr}</span>`;
+      metaRow.innerHTML = `Valid Time: <span class="text-indigo-400 font-bold">${data.validTimeStr} UTC</span> &nbsp;|&nbsp; Latest Model Run: <span class="text-slate-200 font-bold">${data.runTimeStr}</span>`;
 
       document.getElementById('kcar-nbm-dew').innerText = data.nbmDew + "°F";
       document.getElementById('kcar-nbm-rh').innerText = data.nbmRh + "% RH";
@@ -354,17 +408,35 @@
       badge.innerText = (delta >= 0 ? "+" : "") + data.delta + "°F";
       
       const baseBadgeStyle = "px-3 py-1.5 rounded-lg text-center font-black text-sm border min-w-[75px] ";
-      
       if (delta >= 0) {
         badge.className = baseBadgeStyle + "bg-emerald-950/50 text-emerald-400 border-emerald-800/40";
       } else {
         badge.className = baseBadgeStyle + "bg-[#3e2723]/75 text-[#a1887f] border-[#5d4037]/40";
       }
 
+      // 🔄 INTERACTIVE MULTI-TICK SLIDER MATRIX MATH (GRID ONLY CONTEXT)
+      if (data.probabilistic && data.probabilistic.q10 !== null && !isNaN(data.probabilistic.q10) && data.probabilistic.q90 !== null && !isNaN(data.probabilistic.q90)) {
+        probPanel.classList.remove('hidden');
+        
+        const q10 = data.probabilistic.q10;
+        const q25 = data.probabilistic.q25;
+        const q50 = data.probabilistic.q50;
+        const q75 = data.probabilistic.q75;
+        const q90 = data.probabilistic.q90;
+
+        // Populate raw text fields inside the stable ledger grid safely
+        document.getElementById('val-q10').innerText = q10.toFixed(1) + "°F";
+        document.getElementById('val-q25').innerText = q25.toFixed(1) + "°F";
+        document.getElementById('val-q50').innerText = q50.toFixed(1) + "°F";
+        document.getElementById('val-q75').innerText = q75.toFixed(1) + "°F";
+        document.getElementById('val-q90').innerText = q90.toFixed(1) + "°F";
+      } else {
+        probPanel.classList.add('hidden');
+      }
+
       const vPanel = document.getElementById('kcar-verification-panel');
       if (data.isVerified) {
         vPanel.classList.remove('hidden');
-        
         document.getElementById('v-asos-dew').innerText = data.verification.asosDew + "°F";
         
         const nbmErr = parseFloat(data.verification.nbmErr);
@@ -392,6 +464,8 @@
       const banner = document.getElementById('error-banner');
       banner.innerText = errorMsg;
       banner.classList.remove('hidden');
+
+      alert("CRITICAL JAVASCRIPT ERROR:\n" + errorMsg);
     }
   </script>
 </body>

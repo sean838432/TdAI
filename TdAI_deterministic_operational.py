@@ -334,7 +334,7 @@ def main():
     
     # 🔄 RESTORED: Aligned headers matrix list back to Dewpoint validation
     headers = [
-        'valid_time', 'TdAI Run Time (UTC)', 'TdAI Status', 'NBM Temperature (F)', 'NBM RH (%)', 
+        'valid_time', 'TdAI Run Time (UTC)', 'TdAI Status', 'NBM Temperature (F)',
         'NBM Dewpoint (F)', 'TdAI Predicted Bias (F)', 'TdAI Corrected Dewpoint (F)', 
         'ASOS Ground Truth Dewpoint (F)', 'Raw NBM Error (F)', 'Post TdAI Error (F)', 'TdAI Skill Score (%)'
     ]
@@ -361,7 +361,6 @@ def main():
                 'TdAI Run Time (UTC)': current_time_utc.strftime('%Y-%m-%d %H:%M UTC'),
                 'TdAI Status': row_data['TdAI Status'],
                 'NBM Temperature (F)': row_data['NBM Temperature (F)'],
-                'NBM RH (%)': row_data['NBM RH (%)'],
                 'NBM Dewpoint (F)': row_data['NBM Dewpoint (F)'],
                 'TdAI Predicted Bias (F)': row_data['TdAI Predicted Bias (F)'],
                 'TdAI Corrected Dewpoint (F)': row_data['TdAI Corrected Dewpoint (F)'],
@@ -375,8 +374,7 @@ def main():
                 'valid_time': forecast_valid_time.strftime('%Y-%m-%d %H:%M:%S'),
                 'TdAI Run Time (UTC)': current_time_utc.strftime('%Y-%m-%d %H:%M UTC'),
                 'TdAI Status': row_data['TdAI Status'],
-                'NBM Temperature (F)': np.nan, 
-                'NBM RH (%)': np.nan, 
+                'NBM Temperature (F)': np.nan,
                 'NBM Dewpoint (F)': np.nan,
                 'TdAI Predicted Bias (F)': 0.0,
                 'TdAI Corrected Dewpoint (F)': np.nan, 
