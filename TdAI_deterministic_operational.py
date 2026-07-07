@@ -123,20 +123,17 @@ def main():
     if current_time_utc.hour < 14:
         target_run_hour = '00'
         forecast_hours = [21, 45]  # Day 1 Afternoon (F21) & Day 2 Afternoon (F45)
-        # In early morning UTC, 'today' is the correct calendar date for the 00Z model run
         date_strs = [today.strftime('%Y%m%d'), yesterday.strftime('%Y%m%d')]
         print(f"🌙 Overnight Cron: Extracting 00Z HRRR Cycles for Day 1 (F21) and Day 2 (F45) afternoon windows...")
     else:
         target_run_hour = '12'
         forecast_hours = [9, 33]   # Day 1 Afternoon (F09) & Day 2 Afternoon (F33)
-        # In the afternoon, 'today' is the correct calendar date for the 12Z model run
         date_strs = [today.strftime('%Y%m%d'), yesterday.strftime('%Y%m%d')]
         print(f"☀️ Daytime Cron: Extracting 12Z HRRR Cycles for Day 1 (F09) and Day 2 (F33) afternoon windows...")
 
     grib_files = {}
     all_forecast_dfs = []
 
-    # Chronological lookup sequence reinforcing all-or-nothing data availability
     for ds_date in date_strs:
         success = True
         temp_files = {}
@@ -146,7 +143,6 @@ def main():
                 temp_files[fhr] = local_file
             else:
                 success = False
-                # Cleanup partial files immediately if the cycle isn't fully ready on NOMADS
                 for f in temp_files.values():
                     if os.path.exists(f): os.remove(f)
                 break
@@ -157,13 +153,11 @@ def main():
     if not grib_files:
         raise RuntimeError(f"Could not retrieve complete synchronous {target_run_hour}z HRRR frames from server registry.")
 
-    # Loop through BOTH downloaded files to compile our multi-day vertical sounding profiles
     for fhr, grib_file in grib_files.items():
         print(f"📊 Parsing vertical profile structures from temporary raster F{fhr:02d}...")
         with xr.open_dataset(grib_file, engine='cfgrib', backend_kwargs={'filter_by_keys': {'typeOfLevel': 'isobaricInhPa'}}) as ds_filtered:
             valid_time_str = pd.Timestamp(ds_filtered['valid_time'].values).strftime('%Y-%m-%d %H:%M:%S')
             
-            # Map 0-360 East coordinate layout convention used by NOAA
             kcar_lon_360 = kcar_lon + 360.0 if kcar_lon < 0 else kcar_lon
             squared_distance = ((ds_filtered['latitude'] - kcar_lat)**2) + ((ds_filtered['longitude'] - kcar_lon_360)**2)
             y_idx, x_idx = np.unravel_index(np.nanargmin(squared_distance.to_numpy()), squared_distance.shape)
@@ -171,7 +165,6 @@ def main():
             ds_point = ds_filtered.isel(y=y_idx, x=x_idx)
             p_lvls = ds_point['isobaricInhPa'].to_numpy()
             
-            # Restrict profile bounds from 500mb down to the surface layer boundary
             mask = (p_lvls >= 500) & (p_lvls <= 1000)
             
             all_forecast_dfs.append(pd.DataFrame({
@@ -222,8 +215,8 @@ def main():
                 break
 
     parsed_data = {}
-    # Removed 'DPT' target tracking column completely
-    targets = {'UTC': 'UTC Hour', 'TMP': 'NBM Temperature (F)', 'SKY': 'NBM Cloud Cover (%)', 'WDR': 'NBM Wind Direction (tens deg)', 'WSP': 'NBM Wind Speed (kts)', 'MHT': 'NBM Mixing Height (100s ft)'}
+    # 🔄 RESTORED: Re-added 'DPT' target tracking mapping to capture NBM Dewpoint
+    targets = {'UTC': 'UTC Hour', 'TMP': 'NBM Temperature (F)', 'DPT': 'NBM Dewpoint (F)', 'SKY': 'NBM Cloud Cover (%)', 'WDR': 'NBM Wind Direction (tens deg)', 'WSP': 'NBM Wind Speed (kts)', 'MHT': 'NBM Mixing Height (100s ft)'}
     for line in kcar_lines:
         tokens = line.split()
         if not tokens or tokens[0] not in targets: continue
@@ -246,9 +239,12 @@ def main():
     if 'NBM Wind Direction (tens deg)' in nbm_df.columns: nbm_df['NBM Wind Direction (deg)'] = nbm_df['NBM Wind Direction (tens deg)'] * 10
     if 'NBM Mixing Height (100s ft)' in nbm_df.columns: nbm_df['NBM Mixing Height (100s ft AGL)'] = nbm_df['NBM Mixing Height (100s ft)']
     
-    # ✂️ Dropped vapor pressure calculation from text bulletin dewpoint rows.
-    # NBM RH (%) will now be populated directly from the feature arrays later or via direct ingestion
-    nbm_df['NBM RH (%)'] = np.nan 
+    # 🔄 RESTORED: Derived vapor pressure math from text bulletin dewpoint row
+    nbm_tc = (nbm_df['NBM Temperature (F)'] - 32) * (5.0 / 9.0)
+    nbm_tdc = (nbm_df['NBM Dewpoint (F)'] - 32) * (5.0 / 9.0)
+    nbm_es = np.exp((17.625 * nbm_tc) / (243.04 + nbm_tc))
+    nbm_e = np.exp((17.625 * nbm_tdc) / (243.04 + nbm_tdc))
+    nbm_df['NBM RH (%)'] = round(np.clip(100 * (nbm_e / nbm_es), 0.0, 100.0), 1)
     
     print("⏰ Filtering output matrix arrays to parse 21Z peak afternoon mixing windows...")
     nbm_df = nbm_df[nbm_df['valid_time'].dt.hour == 21].copy()
@@ -276,10 +272,6 @@ def main():
     hrrr_pivoted['700mb-500mb Lapse Rate (C/km)'] = calculate_lapse_rate_vectorized(hrrr_pivoted, 700, 500)
 
     master_input_df = pd.merge(nbm_df, hrrr_pivoted, on='valid_time', how='inner')
-    
-    # Map NBM RH (%) directly from the matched HRRR 1000mb or surface grid feature rows
-    if 'rh_1000' in master_input_df.columns:
-        master_input_df['NBM RH (%)'] = master_input_df['rh_1000'].astype(float).round(1)
 
     doy = master_input_df['valid_time'].dt.dayofyear
     master_input_df['sin_season'] = np.sin(2 * np.pi * doy / 365.25)
@@ -288,7 +280,6 @@ def main():
     # -------------------------------------------------------------------------
     # 🔮 SECTION 4: MACHINE LEARNING GBDT PREDICTION BIAS ENGINE (THRESHOLD GATED)
     # -------------------------------------------------------------------------
-    # 🚀 UPDATED ARTIFACT PATHS TO TARGET RESOLVED DETERMINISTIC SCHEMAS
     model_import_path = os.path.join(base_path, "tdai_deterministic_model.joblib")
     features_import_path = os.path.join(base_path, "deterministic_model_feature_schema.joblib")
     
@@ -298,9 +289,9 @@ def main():
     live_model = joblib.load(model_import_path)
     trained_feature_order = joblib.load(features_import_path)
 
-    # Initialize destination columns matching updated feature profiles
+    # 🔄 RESTORED: Shifted target naming parameters back to Dewpoint variables
     master_input_df['TdAI Predicted Bias (F)'] = 0.0
-    master_input_df['TdAI Corrected RH (%)'] = master_input_df['NBM RH (%)'].astype(float).round(1)
+    master_input_df['TdAI Corrected Dewpoint (F)'] = master_input_df['NBM Dewpoint (F)'].astype(float).round(1)
     master_input_df['TdAI Status'] = "Active"
 
     t_pass = master_input_df['NBM Temperature (F)'] >= 50.0
@@ -332,8 +323,8 @@ def main():
         predicted_target_error = live_model.predict(X_live)
         
         master_input_df.loc[threshold_mask, 'TdAI Predicted Bias (F)'] = np.round(predicted_target_error, 1)
-        master_input_df.loc[threshold_mask, 'TdAI Corrected RH (%)'] = np.round(
-            master_input_df.loc[threshold_mask, 'NBM RH (%)'] - master_input_df.loc[threshold_mask, 'TdAI Predicted Bias (F)'], 1
+        master_input_df.loc[threshold_mask, 'TdAI Corrected Dewpoint (F)'] = np.round(
+            master_input_df.loc[threshold_mask, 'NBM Dewpoint (F)'] - master_input_df.loc[threshold_mask, 'TdAI Predicted Bias (F)'], 1
         )
 
     # -------------------------------------------------------------------------
@@ -341,11 +332,11 @@ def main():
     # -------------------------------------------------------------------------
     print("\n📡 Initializing Automated Forecast Validation & Local CSV Ledger Sync...")
     
-    # Refactored columns away from Dewpoint metrics toward Relative Humidity trackers
+    # 🔄 RESTORED: Aligned headers matrix list back to Dewpoint validation
     headers = [
         'valid_time', 'TdAI Run Time (UTC)', 'TdAI Status', 'NBM Temperature (F)', 'NBM RH (%)', 
-        'TdAI Predicted Bias (F)', 'TdAI Corrected RH (%)', 
-        'ASOS Ground Truth RH (%)', 'Raw NBM Error (F)', 'Post TdAI Error (F)', 'TdAI Skill Score (%)'
+        'NBM Dewpoint (F)', 'TdAI Predicted Bias (F)', 'TdAI Corrected Dewpoint (F)', 
+        'ASOS Ground Truth Dewpoint (F)', 'Raw NBM Error (F)', 'Post TdAI Error (F)', 'TdAI Skill Score (%)'
     ]
     
     if os.path.exists(output_csv_path):
@@ -371,9 +362,10 @@ def main():
                 'TdAI Status': row_data['TdAI Status'],
                 'NBM Temperature (F)': row_data['NBM Temperature (F)'],
                 'NBM RH (%)': row_data['NBM RH (%)'],
+                'NBM Dewpoint (F)': row_data['NBM Dewpoint (F)'],
                 'TdAI Predicted Bias (F)': row_data['TdAI Predicted Bias (F)'],
-                'TdAI Corrected RH (%)': row_data['TdAI Corrected RH (%)'],
-                'ASOS Ground Truth RH (%)': np.nan, 
+                'TdAI Corrected Dewpoint (F)': row_data['TdAI Corrected Dewpoint (F)'],
+                'ASOS Ground Truth Dewpoint (F)': np.nan, 
                 'Raw NBM Error (F)': np.nan, 
                 'Post TdAI Error (F)': np.nan, 
                 'TdAI Skill Score (%)': np.nan
@@ -385,9 +377,10 @@ def main():
                 'TdAI Status': row_data['TdAI Status'],
                 'NBM Temperature (F)': np.nan, 
                 'NBM RH (%)': np.nan, 
+                'NBM Dewpoint (F)': np.nan,
                 'TdAI Predicted Bias (F)': 0.0,
-                'TdAI Corrected RH (%)': np.nan, 
-                'ASOS Ground Truth RH (%)': np.nan, 
+                'TdAI Corrected Dewpoint (F)': np.nan, 
+                'ASOS Ground Truth Dewpoint (F)': np.nan, 
                 'Raw NBM Error (F)': np.nan, 
                 'Post TdAI Error (F)': np.nan, 
                 'TdAI Skill Score (%)': np.nan
@@ -405,13 +398,13 @@ def main():
             for target_vtime in new_entry_df['valid_time']:
                 existing_match = combined_log_df[combined_log_df['valid_time'] == target_vtime]
                 if not existing_match.empty:
-                    old_asos = existing_match['ASOS Ground Truth RH (%)'].iloc[0]
+                    old_asos = existing_match['ASOS Ground Truth Dewpoint (F)'].iloc[0]
                     if pd.notna(old_asos):
                         print(f"♻️ Preserving historical ASOS verification data found for {target_vtime}")
-                        new_entry_df.loc[new_entry_df['valid_time'] == target_vtime, 'ASOS Ground Truth RH (%)'] = old_asos
+                        new_entry_df.loc[new_entry_df['valid_time'] == target_vtime, 'ASOS Ground Truth Dewpoint (F)'] = old_asos
                         
-                        r_nbm_err = new_entry_df.loc[new_entry_df['valid_time'] == target_vtime, 'NBM RH (%)'].values[0] - old_asos
-                        p_tdai_err = new_entry_df.loc[new_entry_df['valid_time'] == target_vtime, 'TdAI Corrected RH (%)'].values[0] - old_asos
+                        r_nbm_err = new_entry_df.loc[new_entry_df['valid_time'] == target_vtime, 'NBM Dewpoint (F)'].values[0] - old_asos
+                        p_tdai_err = new_entry_df.loc[new_entry_df['valid_time'] == target_vtime, 'TdAI Corrected Dewpoint (F)'].values[0] - old_asos
                         skill_score = (1.0 - (abs(p_tdai_err) / abs(r_nbm_err))) * 100 if abs(r_nbm_err) > 0 else 0.0
                         
                         new_entry_df.loc[new_entry_df['valid_time'] == target_vtime, 'Raw NBM Error (F)'] = round(r_nbm_err, 2)
@@ -424,13 +417,12 @@ def main():
         combined_log_df = pd.concat([combined_log_df, new_entry_df], ignore_index=True)
         combined_log_df['valid_time'] = pd.to_datetime(combined_log_df['valid_time']).dt.strftime('%Y-%m-%d %H:%M:%S')
         
-        combined_log_df = combined_log_df.sort_values(by=['valid_time', 'ASOS Ground Truth RH (%)'], na_position='first')
+        combined_log_df = combined_log_df.sort_values(by=['valid_time', 'ASOS Ground Truth Dewpoint (F)'], na_position='first')
         combined_log_df = combined_log_df.drop_duplicates(subset=['valid_time'], keep='last')
         combined_log_df = combined_log_df.sort_values(by='valid_time').reset_index(drop=True)
         combined_log_df_dt = pd.to_datetime(combined_log_df['valid_time'])
 
-        # Fetch ASOS parameter key 'relh' (Relative Humidity) for retrospective clean alignment checks
-        missing_mask = combined_log_df['ASOS Ground Truth RH (%)'].isna() & (combined_log_df_dt + datetime.timedelta(minutes=15) <= current_time_utc)
+        missing_mask = combined_log_df['ASOS Ground Truth Dewpoint (F)'].isna() & (combined_log_df_dt + datetime.timedelta(minutes=15) <= current_time_utc)
         missing_indices = combined_log_df[missing_mask].index
 
         if len(missing_indices) > 0:
@@ -441,10 +433,10 @@ def main():
             
             print(f"📡 Pooling bulk ASOS data matrix from server registry: {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}...")
             
-            # Swapped requested data query from 'dwpf' to 'relh'
+            # 翻 RESTORED: Changed data query parameter back to 'dwpf' (Dewpoint)
             asos_url = (
                 f"https://mesonet.agron.iastate.edu/cgi-bin/request/asos.py?"
-                f"station=CAR&data=relh"
+                f"station=CAR&data=dwpf"
                 f"&year1={start_date.year}&month1={start_date.month}&day1={start_date.day}"
                 f"&year2={end_date.year}&month2={end_date.month}&day2={end_date.day}"
                 f"&tz=UTC&format=comma"
@@ -455,7 +447,7 @@ def main():
                 res = requests.get(asos_url, timeout=25)
                 if res.status_code == 200:
                     bulk_asos_df = pd.read_csv(io.StringIO(res.text), comment='#')
-                    if not bulk_asos_df.empty and 'relh' in bulk_asos_df.columns:
+                    if not bulk_asos_df.empty and 'dwpf' in bulk_asos_df.columns:
                         bulk_asos_df['valid_dt'] = pd.to_datetime(bulk_asos_df['valid'])
                         bulk_asos_df['rounded_valid_time_str'] = bulk_asos_df['valid_dt'].dt.round('h').dt.strftime('%Y-%m-%d %H:%M:%S')
                         print("   ✅ Bulk observation database compiled and cached locally in workflow memory.")
@@ -472,29 +464,30 @@ def main():
                     target_obs = bulk_asos_df[bulk_asos_df['rounded_valid_time_str'] == target_vtime_str].copy()
                     
                     if not target_obs.empty:
-                        target_obs['relh_numeric'] = pd.to_numeric(target_obs['relh'], errors='coerce')
-                        valid_reports = target_obs.dropna(subset=['relh_numeric'])
+                        target_obs['dwpf_numeric'] = pd.to_numeric(target_obs['dwpf'], errors='coerce')
+                        valid_reports = target_obs.dropna(subset=['dwpf_numeric'])
                         
                         if not valid_reports.empty:
-                            asos_gt = float(valid_reports['relh_numeric'].iloc[0])
-                            combined_log_df.loc[idx, 'ASOS Ground Truth RH (%)'] = asos_gt
+                            asos_gt = float(valid_reports['dwpf_numeric'].iloc[0])
+                            combined_log_df.loc[idx, 'ASOS Ground Truth Dewpoint (F)'] = asos_gt
                             
                             if v_status == "Active":
-                                nbm_rh = float(combined_log_df.loc[idx, 'NBM RH (%)'])
-                                tdai_rh = float(combined_log_df.loc[idx, 'TdAI Corrected RH (%)'])
+                                nbm_dpt = float(combined_log_df.loc[idx, 'NBM Dewpoint (F)'])
+                                tdai_dpt = float(combined_log_df.loc[idx, 'TdAI Corrected Dewpoint (F)'])
                                 
-                                r_nbm_err = nbm_rh - asos_gt
-                                p_tdai_err = tdai_rh - asos_gt
+                                r_nbm_err = nbm_dpt - asos_gt
+                                p_tdai_err = tdai_dpt - asos_gt
                                 skill_score = (1.0 - (abs(p_tdai_err) / abs(r_nbm_err))) * 100 if abs(r_nbm_err) > 0 else 0.0
                                 
                                 combined_log_df.loc[idx, 'Raw NBM Error (F)'] = round(r_nbm_err, 2)
                                 combined_log_df.loc[idx, 'Post TdAI Error (F)'] = round(p_tdai_err, 2)
                                 combined_log_df.loc[idx, 'TdAI Skill Score (%)'] = round(skill_score, 1)
-                                print(f"        ✅ Active Row Validated! ASOS: {asos_gt}% | TdAI Skill: {round(skill_score, 1)}%")
+                                print(f"        ✅ Active Row Validated! ASOS: {asos_gt}F | TdAI Skill: {round(skill_score, 1)}%")
                             else:
-                                print(f"        ... Bypassed Row Validated! Observed ASOS RH: {asos_gt}% (Calculations omitted).")
+                                print(f"        ... Bypassed Row Validated! Observed ASOS Td: {asos_gt}F (Calculations omitted).")
 
         combined_log_df.to_csv(output_csv_path, index=False)
+        print("💾 Storage synchronization complete.")
 
 if __name__ == "__main__":
     main()
