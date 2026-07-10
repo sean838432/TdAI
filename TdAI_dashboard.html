@@ -111,7 +111,7 @@
               </div>
 
               <div id="kcar-verification-panel" class="hidden bg-indigo-950/20 border border-indigo-500/20 rounded-xl p-3 space-y-2">
-                <span class="block text-[10px] text-indigo-400 font-black tracking-widest border-b border-indigo-900/40 pb-0.5">TdAI RETROSPECTIVE VERIFICATION</span>
+                <span class="block text-[10px] text-indigo-400 font-black tracking-widest border-b border-indigo-900/40 pb-0.5">TdAI DETERMINISTIC VERIFICATION</span>
                 <div class="grid grid-cols-2 gap-2 text-xs">
                   <div>
                     <span class="text-slate-500 text-[10px] block">ASOS Ground Truth:</span>
@@ -239,8 +239,12 @@
       validRows.sort((a, b) => a[idxValidTime].localeCompare(b[idxValidTime]));
       const totalRecords = validRows.length;
       
-      if (totalRecords > 0) tabDataMap['day1'] = processRowData(validRows[totalRecords - 1]);
-      if (totalRecords > 1) tabDataMap['day2'] = processRowData(validRows[totalRecords - 2]);
+      if (totalRecords > 1) {
+        tabDataMap['day1'] = processRowData(validRows[totalRecords - 2]); // Earliest Forecast target (July 10)
+        tabDataMap['day2'] = processRowData(validRows[totalRecords - 1]); // Furthest Forecast target (July 11)
+      } else if (totalRecords > 0) {
+        tabDataMap['day1'] = processRowData(validRows[totalRecords - 1]);
+      }
       if (totalRecords > 2) tabDataMap['day_minus1'] = processRowData(validRows[totalRecords - 3]);
       if (totalRecords > 3) tabDataMap['day_minus2'] = processRowData(validRows[totalRecords - 4]);
       if (totalRecords > 4) tabDataMap['day_minus3'] = processRowData(validRows[totalRecords - 5]);
