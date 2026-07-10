@@ -1,5 +1,5 @@
 valid_time,TdAI Run Time (UTC),TdAI Status,NBM Temperature (F),NBM Dewpoint (F),TdAI Predicted Bias (F),TdAI Corrected Dewpoint (F),ASOS Ground Truth Dewpoint (F),Raw NBM Error (F),Post TdAI Error (F),TdAI Skill Score (%)
 2026-07-07 21:00:00,2026-07-07 20:23 UTC,Active,82,57,3.2,53.8,59.0,-2.0,-5.2,-160.0
 2026-07-08 21:00:00,2026-07-07 20:23 UTC,Active,83,59,3.8,55.2,61.0,-2.0,-5.8,-190.0
-2026-07-10 21:00:00,2026-07-10 19:26 UTC,Active,76,50,2.4,47.6,,,,
-2026-07-11 21:00:00,2026-07-10 19:26 UTC,Active,73,48,1.1,46.9,,,,
+2026-07-10 21:00:00,2026-07-10 20:54 UTC,Active,76,50,2.4,47.6,,,,
+2026-07-11 21:00:00,2026-07-10 20:54 UTC,Active,73,48,1.1,46.9,,,,
