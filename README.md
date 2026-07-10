@@ -1,22 +1,10 @@
-CHANGE LOG:
-1) Added new joblib files with new names.
-2) Updated TdAI_deterministic_operational.py and added TdAI_probabilistic_operational.py to correctly log model run output
-3) Updated the TdAI Dashboard webpage to properly ingest both deterministic and probabilistic data. Still need to test the verification logic.
-
-NEXT STEPS:
-1) Test verification logic
-2) Set up a cron
-
 TdAI is an NBM postprocessing model that uses a Gradient Boosted Decision Tree (GBDT) algorithm to bias correct NBM dewpoint forecasts, particularly on dry, well-mixed days. Its output is designed to be used by NWS forecasters as a fire weather situational tool, giving them confidence to decrease the forecast dewpoint, and thus RH, well below guidance. The overall goal of TdAI is to improve the quality of the fire weather products and services the NWS provides to its fire partners.
 
 ---------------------
 
 TdAI MODEL ARCHITECTURE:
-1) We train only on the 21z data. This maximizes performance because we are only focusing on the time of maximum mixing and lowest RH
-2) No re-distribution of the dataset is done (no random removal of quiet days and no sky/temp/RH/LPW filtering of the dataset)
-3) Training data from 2020-2024 & 2026 is used. 2025 is the validation dataset
-4) A smaller number of trees and smaller max depth of trees is used to account for the smaller dataset (resulting from only using 21z data). This prevents overfitting
-5) An operational validation framework has been added to assess model performance if TdAI was run only under set weather conditions (i.e. when a bust was most likely)
+1) TdAI is trained only on 21z NBM & HRRR data from May 2020 to May 2026. Training only on 21z data maximizes performance because we are only focusing on the time of maximum mixing and lowest RH
+2) TdAI runs only when NBM RH <= 60%, T >= 50 degrees, and Cloud Cover <=60%. This is done to prevent the user from seeing TdAI output on non-fire weather days where its prediction likely doesn't hold any significant value given it is trained to perform best on very dry days.
 
     FEATURE VARIABLES:
         NBM Temperature (C)
@@ -32,26 +20,26 @@ TdAI MODEL ARCHITECTURE:
         Time of year
 
     OUTCOME VARIABLE:
-        Td error from the 12z NBM forecast
+        Td error from the 13z NBM forecast
 
-    WEIGHTING SCHEME:
+    WEIGHTING SCHEME (tells the model to focus more on the largest NBM moist busts):
         Td error 3-4 F: Weight of 2
         Td error >= 5 F: Weight of 5
 
 ----------------------
 
-THE REPOSITORY CONSISTS OF TWO MAIN PARTS:
+THE REPOSITORY CONSISTS OF THREE MAIN PARTS:
 
-1) A Python script that ingests 00z/12z HRRR and 01z/13z NBM data at KCAR which is used to run the TdAI model twice a day
-2) A web visualization dashboard for TdAI forecast output
+1) A Python script that ingests 00z/12z HRRR and 01z/13z NBM data at KCAR which is used to run the DETERMINISTIC TdAI model twice a day
+2) A Python script that ingests 00z/12z HRRR and 01z/13z NBM data at KCAR which is used to run the PROBABILISTIC TdAI model twice a day
+3) A web visualization dashboard for TdAI forecast output
 
-Google Cloud Scheduler was used to set up a cron that runs TdAI at 14:45z every day
+Google Cloud Scheduler was used to set up a cron that runs TdAI at 02:45z and 14:45z every day
 
 ------------------------
 
-STILL TO DO:
+FUTURE STEPS:
 
-1) Add HRRR soil moisture and/or recent precipitation
+1) Add HRRR soil moisture and/or recent precipitation to the training dataset
 2) Train the model on 00z HRRR runs so TdAI runs with the 13z and 01z NBM crons
-3) Add a probabilistic distribution to TdAI using an ensemble of quantile mapping runs (i.e. 10th, 25th, 50th, 75th, 90th
-4) Train the model on more ASOS sites (KBHB, KBGR, KGNR, KMLT, K40B)
+3) Train the model on more ASOS sites (KBHB, KBGR, KGNR, KMLT, K40B)
