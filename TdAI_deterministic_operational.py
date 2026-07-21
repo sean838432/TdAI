@@ -169,6 +169,7 @@ def main():
             
             all_forecast_dfs.append(pd.DataFrame({
                 'valid_time': np.full(np.sum(mask), valid_time_str),
+                'forecast_hour': np.full(np.sum(mask), fhr),
                 'HRRR Pressure (hPa)': p_lvls[mask],
                 'HRRR Temperature (K)': ds_point['t'].to_numpy()[mask],
                 'HRRR Dewpoint (K)': ds_point['dpt'].to_numpy()[mask]
@@ -254,7 +255,9 @@ def main():
     # -------------------------------------------------------------------------
     nbm_df['valid_time'] = pd.to_datetime(nbm_df['valid_time'])
     master_hrrr_profiles_df['valid_time'] = pd.to_datetime(master_hrrr_profiles_df['valid_time'])
-    
+
+    valid_time_to_fhr = master_hrrr_profiles_df[['valid_time', 'forecast_hour']].drop_duplicates().set_index('valid_time')['forecast_hour']
+
     for var in ['HRRR Pressure (hPa)', 'HRRR Temperature (K)', 'HRRR Dewpoint (K)', 'HRRR RH (%)']:
         master_hrrr_profiles_df[var] = pd.to_numeric(master_hrrr_profiles_df[var], errors='coerce')
 
@@ -272,6 +275,7 @@ def main():
     hrrr_pivoted['700mb-500mb Lapse Rate (C/km)'] = calculate_lapse_rate_vectorized(hrrr_pivoted, 700, 500)
 
     master_input_df = pd.merge(nbm_df, hrrr_pivoted, on='valid_time', how='inner')
+    master_input_df['forecast_hour'] = master_input_df['valid_time'].map(valid_time_to_fhr)
 
     doy = master_input_df['valid_time'].dt.dayofyear
     master_input_df['sin_season'] = np.sin(2 * np.pi * doy / 365.25)
@@ -280,14 +284,31 @@ def main():
     # -------------------------------------------------------------------------
     # 🔮 SECTION 4: MACHINE LEARNING GBDT PREDICTION BIAS ENGINE (THRESHOLD GATED)
     # -------------------------------------------------------------------------
-    model_import_path = os.path.join(base_path, "tdai_deterministic_model.joblib")
-    features_import_path = os.path.join(base_path, "deterministic_model_feature_schema.joblib")
-    
-    if not (os.path.exists(model_import_path) and os.path.exists(features_import_path)):
-        raise FileNotFoundError("❌ Core Model weights (.joblib) or schema trackers missing from repo root directory.")
-        
-    live_model = joblib.load(model_import_path)
-    trained_feature_order = joblib.load(features_import_path)
+    model_dir = os.path.join(base_path, "trained_models")
+    day1_fhr, day2_fhr = forecast_hours[0], forecast_hours[1]
+
+    # 🎯 Day 1 uses the shorter lead-time model (F21/F09), Day 2 the longer one (F45/F33),
+    # both drawn from the same cycle (00Z or 12Z) selected in Section 1.
+    fhr_labels = {day1_fhr: "Day 1", day2_fhr: "Day 2"}
+    models_by_fhr = {}
+
+    print(f"🧠 Model selection: {target_run_hour}Z cycle → Day 1 uses F{day1_fhr:02d}, Day 2 uses F{day2_fhr:02d}")
+
+    for fhr, label in fhr_labels.items():
+        model_path = os.path.join(model_dir, f"tdai_deterministic_model_{target_run_hour}z_f{fhr:02d}.joblib")
+        features_path = os.path.join(model_dir, f"deterministic_model_feature_schema_{target_run_hour}z_f{fhr:02d}.joblib")
+
+        if not (os.path.exists(model_path) and os.path.exists(features_path)):
+            raise FileNotFoundError(f"❌ {label} Model weights (.joblib) or schema trackers missing for {target_run_hour}Z F{fhr:02d} in {model_dir}.")
+
+        print(f"   └── {label} ({target_run_hour}Z F{fhr:02d}): loading model '{os.path.basename(model_path)}' + schema '{os.path.basename(features_path)}'")
+
+        models_by_fhr[fhr] = {
+            'label': label,
+            'model': joblib.load(model_path),
+            'feature_order': joblib.load(features_path),
+            'model_filename': os.path.basename(model_path),
+        }
 
     # 🔄 RESTORED: Shifted target naming parameters back to Dewpoint variables
     master_input_df['TdAI Predicted Bias (F)'] = 0.0
@@ -314,17 +335,25 @@ def main():
             master_input_df.at[idx, 'TdAI Status'] = status_text
             print(f"🛑 {v_str} fails criteria. Reason: {status_text}. Bypassing ML bias correction.")
 
-    passing_rows = master_input_df[threshold_mask].copy()
+    for fhr, cfg in models_by_fhr.items():
+        fhr_mask = threshold_mask & (master_input_df['forecast_hour'] == fhr)
+        passing_rows = master_input_df[fhr_mask].copy()
 
-    if not passing_rows.empty:
+        if passing_rows.empty:
+            print(f"⏭️ {cfg['label']} ({target_run_hour}Z F{fhr:02d}): no rows passed threshold gating, model not invoked.")
+            continue
+
+        run_vtimes = ', '.join(pd.to_datetime(passing_rows['valid_time']).dt.strftime('%Y-%m-%d %H:%M UTC'))
+        print(f"🚀 {cfg['label']} ({target_run_hour}Z F{fhr:02d}): running '{cfg['model_filename']}' on {len(passing_rows)} row(s) → {run_vtimes}")
+
         X_live = passing_rows.set_index('valid_time') if 'valid_time' in passing_rows.columns else passing_rows.copy()
-        X_live = X_live[trained_feature_order]
+        X_live = X_live[cfg['feature_order']]
 
-        predicted_target_error = live_model.predict(X_live)
-        
-        master_input_df.loc[threshold_mask, 'TdAI Predicted Bias (F)'] = np.round(predicted_target_error, 1)
-        master_input_df.loc[threshold_mask, 'TdAI Corrected Dewpoint (F)'] = np.round(
-            master_input_df.loc[threshold_mask, 'NBM Dewpoint (F)'] - master_input_df.loc[threshold_mask, 'TdAI Predicted Bias (F)'], 1
+        predicted_target_error = cfg['model'].predict(X_live)
+
+        master_input_df.loc[fhr_mask, 'TdAI Predicted Bias (F)'] = np.round(predicted_target_error, 1)
+        master_input_df.loc[fhr_mask, 'TdAI Corrected Dewpoint (F)'] = np.round(
+            master_input_df.loc[fhr_mask, 'NBM Dewpoint (F)'] - master_input_df.loc[fhr_mask, 'TdAI Predicted Bias (F)'], 1
         )
 
     # -------------------------------------------------------------------------
