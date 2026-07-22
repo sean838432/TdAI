@@ -1,12 +1,9 @@
 """
 TdAI Probabilistic Ingestion, Prediction, and Verification Pipeline
-Automated Convective Boundary Layer Post-Processing Ensembles Module
 """
 
 import os
 import io
-import re
-import time
 import random
 import datetime
 import requests
@@ -14,6 +11,7 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 import joblib
+import lightgbm
 
 def seed_everything(seed=42):
     """Locks random states to enforce analytical reproducibility across iterations."""
@@ -165,6 +163,7 @@ def main():
             
             all_forecast_dfs.append(pd.DataFrame({
                 'valid_time': np.full(np.sum(mask), valid_time_str),
+                'forecast_hour': np.full(np.sum(mask), fhr),
                 'HRRR Pressure (hPa)': p_lvls[mask],
                 'HRRR Temperature (K)': ds_point['t'].to_numpy()[mask],
                 'HRRR Dewpoint (K)': ds_point['dpt'].to_numpy()[mask]
@@ -250,7 +249,9 @@ def main():
     # -------------------------------------------------------------------------
     nbm_df['valid_time'] = pd.to_datetime(nbm_df['valid_time'])
     master_hrrr_profiles_df['valid_time'] = pd.to_datetime(master_hrrr_profiles_df['valid_time'])
-    
+
+    valid_time_to_fhr = master_hrrr_profiles_df[['valid_time', 'forecast_hour']].drop_duplicates().set_index('valid_time')['forecast_hour']
+
     for var in ['HRRR Pressure (hPa)', 'HRRR Temperature (K)', 'HRRR Dewpoint (K)', 'HRRR RH (%)']:
         master_hrrr_profiles_df[var] = pd.to_numeric(master_hrrr_profiles_df[var], errors='coerce')
 
@@ -268,29 +269,47 @@ def main():
     hrrr_pivoted['700mb-500mb Lapse Rate (C/km)'] = calculate_lapse_rate_vectorized(hrrr_pivoted, 700, 500)
 
     master_input_df = pd.merge(nbm_df, hrrr_pivoted, on='valid_time', how='inner')
+    master_input_df['forecast_hour'] = master_input_df['valid_time'].map(valid_time_to_fhr)
 
     doy = master_input_df['valid_time'].dt.dayofyear
     master_input_df['sin_season'] = np.sin(2 * np.pi * doy / 365.25)
     master_input_df['cos_season'] = np.cos(2 * np.pi * doy / 365.25)
 
     # -------------------------------------------------------------------------
-    # 🔮 SECTION 4: PROBABILISTIC QUANTILE MULTI-PREDICTION ENGINE
+    # 🔮 SECTION 4: PROBABILISTIC QUANTILE MULTI-PREDICTION ENGINE (PER-CYCLE MODELS)
     # -------------------------------------------------------------------------
-    model_import_path = os.path.join(base_path, "tdai_probabilistic_models.joblib")
-    features_import_path = os.path.join(base_path, "probabilistic_model_feature_schema.joblib")
-    
-    if not (os.path.exists(model_import_path) and os.path.exists(features_import_path)):
-        raise FileNotFoundError("❌ Probabilistic ensemble assets or schema configuration missing from repository root.")
-        
-    prob_ensemble = joblib.load(model_import_path)
-    trained_feature_order = joblib.load(features_import_path)
+    model_dir = os.path.join(base_path, "trained_models")
+    day1_fhr, day2_fhr = forecast_hours[0], forecast_hours[1]
+
+    # 🎯 Day 1 uses the shorter lead-time model (F21/F09), Day 2 the longer one (F45/F33),
+    # both drawn from the same cycle (00Z or 12Z) selected in Section 1.
+    fhr_labels = {day1_fhr: "Day 1", day2_fhr: "Day 2"}
+    models_by_fhr = {}
 
     quantiles = ['q10', 'q25', 'q50', 'q75', 'q90']
+    print(f"🧠 Model selection: {target_run_hour}Z cycle → Day 1 uses F{day1_fhr:02d}, Day 2 uses F{day2_fhr:02d}")
+
+    for fhr, label in fhr_labels.items():
+        model_path = os.path.join(model_dir, f"tdai_probabilistic_model_{target_run_hour}z_f{fhr:02d}.joblib")
+        features_path = os.path.join(model_dir, f"probabilistic_model_feature_schema_{target_run_hour}z_f{fhr:02d}.joblib")
+
+        if not (os.path.exists(model_path) and os.path.exists(features_path)):
+            raise FileNotFoundError(f"❌ {label} Probabilistic ensemble weights (.joblib) or schema trackers missing for {target_run_hour}Z F{fhr:02d} in {model_dir}.")
+
+        print(f"   └── {label} ({target_run_hour}Z F{fhr:02d}): loading ensemble '{os.path.basename(model_path)}' + schema '{os.path.basename(features_path)}'")
+
+        models_by_fhr[fhr] = {
+            'label': label,
+            'ensemble': joblib.load(model_path),
+            'feature_order': joblib.load(features_path),
+            'model_filename': os.path.basename(model_path),
+        }
+
     for q in quantiles:
         master_input_df[f'TdAI_Predicted_Bias_{q}'] = 0.0
         # 🔄 FIXED: Shifted output targets away from RH back to Dewpoint variables
         master_input_df[f'TdAI_Corrected_Dewpoint_{q}'] = master_input_df['NBM Dewpoint (F)'].astype(float).round(1)
-        
+
     master_input_df['TdAI Status'] = "Active"
 
     t_pass = master_input_df['NBM Temperature (F)'] >= 50.0
@@ -307,38 +326,46 @@ def main():
             if not t_pass[idx]: reasons.append("T < 50 F")
             if not rh_pass[idx]: reasons.append("RH > 60 %")
             if not sky_pass[idx]: reasons.append("Sky > 60 %")
-            
+
             status_text = f"{', '.join(reasons)}"
             master_input_df.at[idx, 'TdAI Status'] = status_text
             print(f"🛑 {v_str} bypassed. Criteria flag down: {status_text}")
 
-    passing_rows = master_input_df[threshold_mask].copy()
+    for fhr, cfg in models_by_fhr.items():
+        fhr_mask = threshold_mask & (master_input_df['forecast_hour'] == fhr)
+        passing_rows = master_input_df[fhr_mask].copy()
 
-    if not passing_rows.empty:
+        if passing_rows.empty:
+            print(f"⏭️ {cfg['label']} ({target_run_hour}Z F{fhr:02d}): no rows passed threshold gating, ensemble not invoked.")
+            continue
+
+        run_vtimes = ', '.join(pd.to_datetime(passing_rows['valid_time']).dt.strftime('%Y-%m-%d %H:%M UTC'))
+        print(f"🚀 {cfg['label']} ({target_run_hour}Z F{fhr:02d}): running '{cfg['model_filename']}' on {len(passing_rows)} row(s) → {run_vtimes}")
+
         X_live = passing_rows.set_index('valid_time') if 'valid_time' in passing_rows.columns else passing_rows.copy()
-        X_live = X_live[trained_feature_order]
+        X_live = X_live[cfg['feature_order']]
 
         # 1. Run inference across all underlying quantile estimators first to generate the raw bias arrays
         raw_biases = {}
         for q in quantiles:
-            raw_biases[q] = prob_ensemble[q].predict(X_live)
-            master_input_df.loc[threshold_mask, f'TdAI_Predicted_Bias_{q}'] = np.round(raw_biases[q], 1)
+            raw_biases[q] = cfg['ensemble'][q].predict(X_live)
+            master_input_df.loc[fhr_mask, f'TdAI_Predicted_Bias_{q}'] = np.round(raw_biases[q], 1)
 
         # 2. 🔄 CROSS-MAPPED ALIGNMENT: Map high error quantiles to low dewpoint quantiles to reverse the subtraction inversion
-        master_input_df.loc[threshold_mask, 'TdAI_Corrected_Dewpoint_q10'] = np.round(
-            master_input_df.loc[threshold_mask, 'NBM Dewpoint (F)'] - raw_biases['q90'], 1
+        master_input_df.loc[fhr_mask, 'TdAI_Corrected_Dewpoint_q10'] = np.round(
+            master_input_df.loc[fhr_mask, 'NBM Dewpoint (F)'] - raw_biases['q90'], 1
         )
-        master_input_df.loc[threshold_mask, 'TdAI_Corrected_Dewpoint_q25'] = np.round(
-            master_input_df.loc[threshold_mask, 'NBM Dewpoint (F)'] - raw_biases['q75'], 1
+        master_input_df.loc[fhr_mask, 'TdAI_Corrected_Dewpoint_q25'] = np.round(
+            master_input_df.loc[fhr_mask, 'NBM Dewpoint (F)'] - raw_biases['q75'], 1
         )
-        master_input_df.loc[threshold_mask, 'TdAI_Corrected_Dewpoint_q50'] = np.round(
-            master_input_df.loc[threshold_mask, 'NBM Dewpoint (F)'] - raw_biases['q50'], 1
+        master_input_df.loc[fhr_mask, 'TdAI_Corrected_Dewpoint_q50'] = np.round(
+            master_input_df.loc[fhr_mask, 'NBM Dewpoint (F)'] - raw_biases['q50'], 1
         )
-        master_input_df.loc[threshold_mask, 'TdAI_Corrected_Dewpoint_q75'] = np.round(
-            master_input_df.loc[threshold_mask, 'NBM Dewpoint (F)'] - raw_biases['q25'], 1
+        master_input_df.loc[fhr_mask, 'TdAI_Corrected_Dewpoint_q75'] = np.round(
+            master_input_df.loc[fhr_mask, 'NBM Dewpoint (F)'] - raw_biases['q25'], 1
         )
-        master_input_df.loc[threshold_mask, 'TdAI_Corrected_Dewpoint_q90'] = np.round(
-            master_input_df.loc[threshold_mask, 'NBM Dewpoint (F)'] - raw_biases['q10'], 1
+        master_input_df.loc[fhr_mask, 'TdAI_Corrected_Dewpoint_q90'] = np.round(
+            master_input_df.loc[fhr_mask, 'NBM Dewpoint (F)'] - raw_biases['q10'], 1
         )
 
     # -------------------------------------------------------------------------
