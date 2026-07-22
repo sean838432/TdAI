@@ -10,8 +10,13 @@ TdAI is an NBM postprocessing model that uses a Gradient Boosted Decision Tree (
 ---------------------
 
 TdAI MODEL ARCHITECTURE:
-1) TdAI is trained only on 21z NBM & HRRR data from May 2020 to May 2026. Training only on 21z data maximizes performance because we are only focusing on the time of maximum mixing and lowest RH
-2) TdAI runs only when NBM RH <= 60%, T >= 50 degrees, and Cloud Cover <=60%. This is done to prevent the user from seeing TdAI output on non-fire weather days where its prediction likely doesn't hold any significant value given it is trained to perform best on very dry days.
+1) TdAI is trained only on 21z NBM & HRRR sounding data from May 2020 to July 2026. Training only on 21z data maximizes performance because we are only focusing on the time of peak mixing and lowest RH
+2) Separate models for both the deterministic and probabilistic versions were trained for each operational cycle of TdAI (run time and forecast hour) to prevent structural bias. These are as follows:
+   a) 02:45z TdAI forecast for day 1 (00z HRRR at f21 and 01z NBM at f20)
+   b) 02:45z TdAI forecast for day 2 (00z HRRR at f45 and 01z NBM at f44)
+   c) 14:45z TdAI forecast for day 1 (12z HRRR at f09 and 13z NBM at f08)
+   d) 14:45z TdAI forecast for day 2 (12z HRRR at f33 and 13z NBM at f32)
+5) TdAI runs only when NBM RH <= 60%, T >= 50 degrees, and Cloud Cover <=60%. This is done to prevent the user from seeing TdAI output on non-fire weather days where its prediction likely doesn't hold any significance given it is trained to perform best on very dry days.
 
     FEATURE VARIABLES:
         NBM Temperature (C)
@@ -20,10 +25,10 @@ TdAI MODEL ARCHITECTURE:
         NBM Mixing Height (100s of ft AGL)
         NBM Wind Speed (kts)
         NBM Wind Direction (deg)
-        HRRR RH at all levels (%)
         HRRR PWAT
         HRRR 1000mb-850mb Lapse Rate (C/km)
         HRRR 850mb-500mb Lapse Rate (C/km)
+        HRRR RH at all levels (%)
         Time of year
 
     OUTCOME VARIABLE:
@@ -37,16 +42,16 @@ TdAI MODEL ARCHITECTURE:
 
 THE REPOSITORY CONSISTS OF THREE MAIN PARTS:
 
-1) A Python script that ingests 00z/12z HRRR and 01z/13z NBM data at KCAR which is used to run the DETERMINISTIC TdAI model twice a day
-2) A Python script that ingests 00z/12z HRRR and 01z/13z NBM data at KCAR which is used to run the PROBABILISTIC TdAI model twice a day
+1) A Python script that ingests 00z/12z HRRR and 01z/13z NBM data at KCAR which is used to run the DETERMINISTIC TdAI models twice a day
+2) A Python script that ingests 00z/12z HRRR and 01z/13z NBM data at KCAR which is used to run the PROBABILISTIC TdAI models twice a day
 3) A web visualization dashboard for TdAI forecast output
 
 Google Cloud Scheduler was used to set up a cron that runs TdAI at 02:45z and 14:45z every day
 
 ------------------------
 
-FUTURE STEPS:
+FUTURE ADDITIONS TO TdAI:
 
 1) Add HRRR soil moisture and/or recent precipitation to the training dataset
-2) Train the model on 00z HRRR runs so TdAI runs with the 13z and 01z NBM crons
-3) Train the model on more ASOS sites (KBHB, KBGR, KGNR, KMLT, K40B)
+2) Add 15-21z average, rather than just 21z, NBM Sky as a predictor
+3) Train the model on more ASOS sites (KBHB, KBGR, KGNR, KMLT, K40B, etc.)
