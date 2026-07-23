@@ -1,0 +1,12 @@
+TdAI v3.0
+1) Separate models are now used for each operational forecast cycle 
+(03z Day 1, 03z Day 2, 15z Day 1, & 15z Day 2)
+2) NBM Td is no longer used as a predictor
+3) 2020 has been removed from the training dataset so TdAI is trained only on HRRRv4 data
+
+TdAI v.2.0
+1) A suite of probabilistic models (10th, 25th, 50th, 75th, 90th) have been added to TdAI 
+which are trained on the same dataset of the deterministic model
+
+TdAI v1.0
+1) This is the first version of TdAI which uses a single model to make only a deterministic forecast

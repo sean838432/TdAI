@@ -22,10 +22,24 @@
         </p>
       </div>
       
-      <div>
+      <div class="relative">
         <a href="https://forms.gle/x2Wh4TcTCkkeBGbt6" target="_blank" class="inline-flex items-center gap-2 px-4 py-2.5 bg-indigo-600/10 hover:bg-indigo-600 text-indigo-400 hover:text-white font-bold text-sm rounded-xl border border-indigo-500/20 shadow-sm transition-all duration-150">
           📋 TdAI Forecaster Survey
         </a>
+        <p class="text-base text-slate-300 font-bold mt-1 text-center md:text-right">
+          TdAI v3.0
+          <button onclick="toggleChangelog()" class="text-indigo-400 hover:text-indigo-300 font-bold underline underline-offset-2 ml-1">Release Notes</button>
+        </p>
+
+        <div id="changelog-dropdown" class="hidden absolute right-0 mt-2 w-96 max-w-[90vw] max-h-96 overflow-y-auto bg-slate-900 border border-slate-700 rounded-xl shadow-2xl p-4 z-50 text-left">
+          <div class="flex justify-between items-center mb-3">
+            <span class="text-xs uppercase tracking-widest font-black text-slate-500">Release Notes</span>
+            <button onclick="toggleChangelog()" class="text-slate-500 hover:text-slate-300 text-sm font-bold">✕</button>
+          </div>
+          <div id="changelog-content" class="space-y-4">
+            <p class="text-xs text-slate-400 italic">Loading...</p>
+          </div>
+        </div>
       </div>
     </header>
 
@@ -168,10 +182,77 @@
   <script>
     let globalTabsDataset = null;
     let currentTabActive = "day1";
+    let changelogLoaded = false;
 
     window.addEventListener('DOMContentLoaded', () => {
       fetchDashboardDataFromCSV();
     });
+
+    function toggleChangelog() {
+      const dropdown = document.getElementById('changelog-dropdown');
+      const willShow = dropdown.classList.contains('hidden');
+      dropdown.classList.toggle('hidden');
+
+      if (willShow && !changelogLoaded) {
+        fetch('./CHANGELOG.txt', { cache: "no-store" })
+          .then(res => {
+            if (!res.ok) throw new Error("Not found");
+            return res.text();
+          })
+          .then(text => {
+            renderChangelog(text);
+            changelogLoaded = true;
+          })
+          .catch(() => {
+            document.getElementById('changelog-content').innerHTML =
+              '<p class="text-xs text-rose-400 italic">Release notes unavailable.</p>';
+          });
+      }
+    }
+
+    function escapeHtml(str) {
+      const div = document.createElement('div');
+      div.innerText = str;
+      return div.innerHTML;
+    }
+
+    function renderChangelog(rawText) {
+      const container = document.getElementById('changelog-content');
+      const blocks = rawText.trim().split(/\n\s*\n/);
+
+      const html = blocks.map((block, blockIdx) => {
+        const lines = block.split('\n').map(l => l.trim()).filter(Boolean);
+        if (lines.length === 0) return '';
+
+        const versionTitle = lines[0];
+
+        // Merge wrapped continuation lines back into their numbered item
+        const items = [];
+        for (let i = 1; i < lines.length; i++) {
+          if (/^\d+\)/.test(lines[i])) {
+            items.push(lines[i].replace(/^\d+\)\s*/, ''));
+          } else if (items.length > 0) {
+            items[items.length - 1] += ' ' + lines[i];
+          }
+        }
+
+        const itemsHtml = items.map(item => `
+          <li class="flex gap-2 text-xs text-slate-300 leading-relaxed">
+            <span class="text-indigo-400 mt-0.5">&#8226;</span>
+            <span>${escapeHtml(item)}</span>
+          </li>
+        `).join('');
+
+        return `
+          <div class="${blockIdx > 0 ? 'pt-3 border-t border-slate-800' : ''}">
+            <span class="inline-block text-sm font-black text-indigo-400 mb-1.5 tracking-tight">${escapeHtml(versionTitle)}</span>
+            <ul class="space-y-1.5">${itemsHtml}</ul>
+          </div>
+        `;
+      }).join('');
+
+      container.innerHTML = html || '<p class="text-xs text-slate-400 italic">No release notes found.</p>';
+    }
 
     function fetchDashboardDataFromCSV() {
       Promise.all([
