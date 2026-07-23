@@ -40,7 +40,7 @@ TdAI is an NBM postprocessing model that uses a Gradient Boosted Decision Tree (
 * **$T_d$ error 3–4°F**: Weight of 2
 * **$T_d$ error ≥ 5°F**: Weight of 5
 
-### TdAI Version History
+### TdAI Current Versions
 * **TdAI Deterministic**: v3.0
 * **TdAI Probabilistic**: v2.0
 
