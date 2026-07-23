@@ -29,7 +29,7 @@ TdAI is an NBM postprocessing model that uses a Gradient Boosted Decision Tree (
 * HRRR PWAT
 * HRRR 1000mb–850mb Lapse Rate (°C/km)
 * HRRR 850mb–500mb Lapse Rate (°C/km)
-* HRRR RH at all levels (%)
+* HRRR RH at all levels sfc-500mb (%)
 * Time of year
 
 ### Outcome Variable
