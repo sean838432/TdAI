@@ -6,7 +6,7 @@ TdAI v3.0
 
 TdAI v.2.0
 1) A suite of probabilistic models (10th, 25th, 50th, 75th, 90th) have been added to TdAI 
-which are trained on the same dataset of the deterministic model
+which are trained on the same dataset as the deterministic model
 
 TdAI v1.0
 1) This is the first version of TdAI which uses a single model to make only a deterministic forecast
