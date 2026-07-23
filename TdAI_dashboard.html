@@ -409,10 +409,12 @@
 
       const badge = document.getElementById('kcar-badge');
       const delta = data.deltaValue;
-      badge.innerText = (delta >= 0 ? "+" : "") + data.delta + "°F";
+      badge.innerText = (delta >= 0 ? "-" : "") + data.delta + "°F";
       
       const baseBadgeStyle = "px-3 py-1.5 rounded-lg text-center font-black text-sm border min-w-[75px] ";
-      if (delta >= 0) {
+      if (delta === 0) {
+        badge.className = baseBadgeStyle + "bg-slate-800 text-slate-400 border-slate-700";
+      } else if (delta > 0) {
         badge.className = baseBadgeStyle + "bg-emerald-950/50 text-emerald-400 border-emerald-800/40";
       } else {
         badge.className = baseBadgeStyle + "bg-[#3e2723]/75 text-[#a1887f] border-[#5d4037]/40";

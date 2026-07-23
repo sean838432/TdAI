@@ -1,12 +1,11 @@
-#!/usr/bin/env python3
 """
 TdAI Operational Ingestion, Prediction, and Verification Pipeline
-Automated Convective Boundary Layer Post-Processing Module for GitHub Pages
 """
 
 import os
 import io
 import re
+import glob
 import time
 import random
 import datetime
@@ -175,6 +174,8 @@ def main():
                 'HRRR Dewpoint (K)': ds_point['dpt'].to_numpy()[mask]
             }))
         if os.path.exists(grib_file): os.remove(grib_file)
+        for idx_file in glob.glob(f"{grib_file}*.idx"):
+            os.remove(idx_file)
 
     master_hrrr_profiles_df = pd.concat(all_forecast_dfs, ignore_index=True)
     t_c = master_hrrr_profiles_df['HRRR Temperature (K)'].astype(float) - 273.15
@@ -350,6 +351,8 @@ def main():
         X_live = X_live[cfg['feature_order']]
 
         predicted_target_error = cfg['model'].predict(X_live)
+        # Guardrail: clamp negative bias predictions to 0 so Corrected Dewpoint never rises above NBM Dewpoint.
+        predicted_target_error = np.maximum(predicted_target_error, 0.0)
 
         master_input_df.loc[fhr_mask, 'TdAI Predicted Bias (F)'] = np.round(predicted_target_error, 1)
         master_input_df.loc[fhr_mask, 'TdAI Corrected Dewpoint (F)'] = np.round(

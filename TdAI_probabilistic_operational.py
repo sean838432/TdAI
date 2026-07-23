@@ -4,6 +4,7 @@ TdAI Probabilistic Ingestion, Prediction, and Verification Pipeline
 
 import os
 import io
+import glob
 import random
 import datetime
 import requests
@@ -169,6 +170,8 @@ def main():
                 'HRRR Dewpoint (K)': ds_point['dpt'].to_numpy()[mask]
             }))
         if os.path.exists(grib_file): os.remove(grib_file)
+        for idx_file in glob.glob(f"{grib_file}*.idx"):
+            os.remove(idx_file)
 
     master_hrrr_profiles_df = pd.concat(all_forecast_dfs, ignore_index=True)
     t_c = master_hrrr_profiles_df['HRRR Temperature (K)'].astype(float) - 273.15
