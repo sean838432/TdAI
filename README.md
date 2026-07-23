@@ -38,6 +38,10 @@ TdAI MODEL ARCHITECTURE:
         Td error 3-4 F: Weight of 2
         Td error >= 5 F: Weight of 5
 
+    TdAI VERSIONS:
+        TdAI Deterministic: v3.0
+        TdAI Probabilistic: v2.0
+
 ----------------------
 
 THE REPOSITORY CONSISTS OF THREE MAIN PARTS:
