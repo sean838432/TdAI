@@ -5,19 +5,20 @@
   </tr>
 </table>
 
-TdAI is an NBM postprocessing model that uses a Gradient Boosted Decision Tree (GBDT) algorithm to bias correct NBM dewpoint forecasts, particularly on dry, well-mixed days. Its output is designed to be used by NWS forecasters as a fire weather situational tool, giving them confidence to decrease the forecast dewpoint, and thus RH, well below guidance. The overall goal of TdAI is to improve the quality of the fire weather products and services the NWS provides to its fire partners.
+TdAI is an NBM postprocessing model that uses a Gradient Boosted Decision Tree (GBDT) machine learning algorithm to bias correct NBM dewpoint forecasts, particularly on dry, well-mixed days. Its output is designed to be used by NWS forecasters as a fire weather situational tool, giving them confidence to decrease the forecast dewpoint, and thus RH, well below guidance. The overall goal of TdAI is to improve the quality of the fire weather products and services the NWS provides to its fire partners.
 
 ---
 
 ## TdAI Model Architecture
 
-1. **Training Dataset**: TdAI is trained only on 21z NBM & HRRR sounding data from May 2021 to July 2026. Training strictly on 21z data maximizes performance by focusing exclusively on peak boundary layer mixing and minimum diurnal RH.
-2. **Cycle Specialization**: Separate models for both deterministic and probabilistic versions were trained for each operational cycle of TdAI (run time and forecast hour) to prevent structural bias:
+1. **Machine Learning Algorithm**: Gradient Boosted Decision Trees
+2. **Training Dataset**: TdAI is trained only on 21z NBM & HRRR sounding data from May 2021 to July 2026. Training strictly on 21z data maximizes performance by focusing exclusively on peak boundary layer mixing and minimum diurnal RH.
+3. **Cycle Specialization**: Separate models for both deterministic and probabilistic versions were trained for each operational cycle of TdAI (run time and forecast hour) to prevent structural bias:
    * **02:45z TdAI Day 1**: 00z HRRR at f21 and 01z NBM at f20
    * **02:45z TdAI Day 2**: 00z HRRR at f45 and 01z NBM at f44
    * **14:45z TdAI Day 1**: 12z HRRR at f09 and 13z NBM at f08
    * **14:45z TdAI Day 2**: 12z HRRR at f33 and 13z NBM at f32
-3. **Execution Gating Criteria**: TdAI runs only when **NBM RH ≤ 60%**, **T ≥ 50°F**, and **Cloud Cover ≤ 60%**. This prevents forecasters from seeing TdAI output on non-fire weather days where predictions carry little operational significance.
+4. **Execution Gating Criteria**: TdAI runs only when **NBM RH ≤ 60%**, **T ≥ 50°F**, and **Cloud Cover ≤ 60%**. This prevents forecasters from seeing TdAI output on non-fire weather days where predictions carry little operational significance.
 
 ### Feature Variables
 * NBM Temperature (°C)
@@ -33,10 +34,11 @@ TdAI is an NBM postprocessing model that uses a Gradient Boosted Decision Tree (
 * Time of year
 
 ### Outcome Variable
-* Dewpoint ($T_d$) error relative to the 13z NBM forecast
+* Dewpoint ($T_d$) error relative to the 01z/13z NBM forecast
 
 ### Weighting Scheme
 *(Focuses model optimization on the largest NBM moist busts)*
+* **$T_d$ error < 3°F**: Weight of 1
 * **$T_d$ error 3–4°F**: Weight of 2
 * **$T_d$ error ≥ 5°F**: Weight of 5
 

@@ -7,10 +7,11 @@
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+CiAgPHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTQiIGZpbGw9IiMwZjE3MmEiLz4KICA8dGV4dCB4PSIzMiIgeT0iNDMiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZvbnQtZmFtaWx5PSJBcmlhbCwgSGVsdmV0aWNhLCBzYW5zLXNlcmlmIiBmb250LXdlaWdodD0iOTAwIiBmb250LXNpemU9IjI2IiBsZXR0ZXItc3BhY2luZz0iLTEiPgogICAgPHRzcGFuIGZpbGw9IiMzNGQzOTkiPlRkPC90c3Bhbj48dHNwYW4gZmlsbD0iI2NiZDVlMSI+QUk8L3RzcGFuPgogIDwvdGV4dD4KPC9zdmc+Cg==">
   <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
   <style>
+    html { overflow-y: scroll; }
     body { background-color: #0f172a; font-family: ui-sans-serif, system-ui, sans-serif; }
   </style>
 </head>
-<body class="p-6 md:p-12 text-slate-100">
+<body class="p-6 md:p-12 text-slate-100" style="padding-bottom: 2.25rem;">
 
   <div class="max-w-7xl mx-auto">
     <header class="mb-6 border-b border-slate-800 pb-6 flex flex-col md:flex-row justify-between items-center gap-4 text-center md:text-left">
@@ -23,21 +24,33 @@
         </p>
       </div>
       
-      <div class="relative">
+      <div class="relative flex flex-col items-center md:items-end">
         <a href="https://forms.gle/x2Wh4TcTCkkeBGbt6" target="_blank" class="inline-flex items-center gap-2 px-4 py-2.5 bg-indigo-600/10 hover:bg-indigo-600 text-indigo-400 hover:text-white font-bold text-sm rounded-xl border border-indigo-500/20 shadow-sm transition-all duration-150">
           📋 TdAI Forecaster Survey
         </a>
         <p class="text-base text-slate-300 font-bold mt-1 text-center md:text-right">
           TdAI v3.0
-          <button onclick="toggleChangelog()" class="text-indigo-400 hover:text-indigo-300 font-bold underline underline-offset-2 ml-1">Release Notes</button>
+          <button id="changelog-toggle-btn" onclick="toggleChangelog()" class="text-indigo-400 hover:text-indigo-300 font-bold underline underline-offset-2 ml-1">Release Notes</button>
+          <span class="text-slate-600 mx-1">|</span>
+          <button id="about-toggle-btn" onclick="toggleAbout()" class="text-indigo-400 hover:text-indigo-300 font-bold underline underline-offset-2">About TdAI</button>
         </p>
 
-        <div id="changelog-dropdown" class="hidden absolute right-0 mt-2 w-96 max-w-[90vw] max-h-96 overflow-y-auto bg-slate-900 border border-slate-700 rounded-xl shadow-2xl p-4 z-50 text-left">
+        <div id="changelog-dropdown" class="hidden absolute right-0 top-full mt-2 w-96 max-w-[90vw] max-h-96 overflow-y-auto bg-slate-900 border border-slate-700 rounded-xl shadow-2xl p-4 z-50 text-left">
           <div class="flex justify-between items-center mb-3">
             <span class="text-xs uppercase tracking-widest font-black text-slate-500">Release Notes</span>
             <button onclick="toggleChangelog()" class="text-slate-500 hover:text-slate-300 text-sm font-bold">✕</button>
           </div>
           <div id="changelog-content" class="space-y-4">
+            <p class="text-xs text-slate-400 italic">Loading...</p>
+          </div>
+        </div>
+
+        <div id="about-dropdown" class="hidden absolute right-0 top-full mt-2 w-96 max-w-[90vw] max-h-[50vh] overflow-y-auto bg-slate-900 border border-slate-700 rounded-xl shadow-2xl p-4 z-50 text-left">
+          <div class="flex justify-between items-center mb-3">
+            <span class="text-xs uppercase tracking-widest font-black text-slate-500">About TdAI</span>
+            <button onclick="toggleAbout()" class="text-slate-500 hover:text-slate-300 text-sm font-bold">✕</button>
+          </div>
+          <div id="about-content" class="space-y-3 text-xs text-slate-300 leading-relaxed whitespace-pre-line">
             <p class="text-xs text-slate-400 italic">Loading...</p>
           </div>
         </div>
@@ -180,13 +193,35 @@
     </main>
   </div>
 
+  <footer class="fixed bottom-0 inset-x-0 bg-slate-950/10 backdrop-blur border-t border-slate-800 py-2 text-center z-40">
+    <p class="text-[12px] text-white">TdAI was developed by Sean Melanson at NWS Caribou</p>
+  </footer>
+
   <script>
     let globalTabsDataset = null;
     let currentTabActive = "day1";
     let changelogLoaded = false;
+    let aboutLoaded = false;
 
     window.addEventListener('DOMContentLoaded', () => {
       fetchDashboardDataFromCSV();
+    });
+
+    document.addEventListener('click', (e) => {
+      const changelogDropdown = document.getElementById('changelog-dropdown');
+      const aboutDropdown = document.getElementById('about-dropdown');
+
+      if (!changelogDropdown.classList.contains('hidden')
+          && !changelogDropdown.contains(e.target)
+          && !document.getElementById('changelog-toggle-btn').contains(e.target)) {
+        changelogDropdown.classList.add('hidden');
+      }
+
+      if (!aboutDropdown.classList.contains('hidden')
+          && !aboutDropdown.contains(e.target)
+          && !document.getElementById('about-toggle-btn').contains(e.target)) {
+        aboutDropdown.classList.add('hidden');
+      }
     });
 
     function toggleChangelog() {
@@ -211,10 +246,138 @@
       }
     }
 
+    function toggleAbout() {
+      const dropdown = document.getElementById('about-dropdown');
+      const willShow = dropdown.classList.contains('hidden');
+      dropdown.classList.toggle('hidden');
+
+      if (willShow && !aboutLoaded) {
+        fetch('./ABOUT.txt', { cache: "no-store" })
+          .then(res => {
+            if (!res.ok) throw new Error("Not found");
+            return res.text();
+          })
+          .then(text => {
+            renderAbout(text);
+            aboutLoaded = true;
+          })
+          .catch(() => {
+            document.getElementById('about-content').innerHTML =
+              '<p class="text-xs text-rose-400 italic">About information unavailable.</p>';
+          });
+      }
+    }
+
+    function renderAbout(rawText) {
+      const container = document.getElementById('about-content');
+      const text = rawText.trim();
+      container.innerHTML = text
+        ? parseMarkdown(text)
+        : '<p class="text-xs text-slate-400 italic">No details provided yet.</p>';
+    }
+
     function escapeHtml(str) {
       const div = document.createElement('div');
       div.innerText = str;
       return div.innerHTML;
+    }
+
+    // Minimal Markdown -> HTML: headings, hr, ordered/unordered lists
+    // (with one level of nesting), bold, and italics. Not a full CommonMark parser.
+    function inlineMarkdown(str) {
+      let s = escapeHtml(str);
+      s = s.replace(/\*\*(.+?)\*\*/g, '<strong class="text-slate-100 font-bold">$1</strong>');
+      s = s.replace(/\*(.+?)\*/g, '<em>$1</em>');
+      return s;
+    }
+
+    function parseMarkdown(rawText) {
+      const lines = rawText.replace(/\r\n/g, '\n').split('\n');
+      let html = '';
+      let paragraphBuf = [];
+      let list = null;
+
+      const flushParagraph = () => {
+        if (paragraphBuf.length) {
+          html += `<p class="text-xs text-slate-300 leading-relaxed mb-2">${inlineMarkdown(paragraphBuf.join(' '))}</p>`;
+          paragraphBuf = [];
+        }
+      };
+
+      const flushList = () => {
+        if (!list) return;
+        const itemsHtml = list.items.map(item => {
+          const subHtml = item.sub
+            ? `<ul class="list-disc pl-4 mt-1 space-y-1 marker:text-indigo-400">${item.sub.map(s => `<li class="text-xs text-slate-300 leading-relaxed">${inlineMarkdown(s)}</li>`).join('')}</ul>`
+            : '';
+          return `<li class="text-xs text-slate-300 leading-relaxed">${inlineMarkdown(item.text)}${subHtml}</li>`;
+        }).join('');
+        const listClass = list.type === 'ol'
+          ? 'list-decimal pl-4 space-y-1.5 mb-2 marker:text-indigo-400 marker:font-bold'
+          : 'list-disc pl-4 space-y-1 mb-2 marker:text-indigo-400';
+        html += `<${list.type} class="${listClass}">${itemsHtml}</${list.type}>`;
+        list = null;
+      };
+
+      for (const rawLine of lines) {
+        const line = rawLine.replace(/\s+$/, '');
+
+        if (!line.trim()) {
+          flushParagraph();
+          flushList();
+          continue;
+        }
+
+        if (/^-{3,}$/.test(line.trim())) {
+          flushParagraph();
+          flushList();
+          html += '<hr class="border-slate-800 my-3">';
+          continue;
+        }
+
+        const headingMatch = line.match(/^(#{1,6})\s+(.*)$/);
+        if (headingMatch) {
+          flushParagraph();
+          flushList();
+          const level = headingMatch[1].length;
+          const sizeClass = level <= 2
+            ? 'text-sm font-black text-indigo-400 mt-3 mb-1.5 tracking-tight'
+            : 'text-xs font-bold text-slate-200 mt-2.5 mb-1';
+          html += `<h${level} class="${sizeClass}">${inlineMarkdown(headingMatch[2])}</h${level}>`;
+          continue;
+        }
+
+        const nestedBulletMatch = line.match(/^\s{2,}[*-]\s+(.*)$/);
+        if (nestedBulletMatch && list && list.type === 'ol' && list.items.length) {
+          const lastItem = list.items[list.items.length - 1];
+          if (!lastItem.sub) lastItem.sub = [];
+          lastItem.sub.push(nestedBulletMatch[1]);
+          continue;
+        }
+
+        const orderedMatch = line.match(/^\d+\.\s+(.*)$/);
+        if (orderedMatch) {
+          flushParagraph();
+          if (!list || list.type !== 'ol') { flushList(); list = { type: 'ol', items: [] }; }
+          list.items.push({ text: orderedMatch[1] });
+          continue;
+        }
+
+        const bulletMatch = line.match(/^[*-]\s+(.*)$/);
+        if (bulletMatch) {
+          flushParagraph();
+          if (!list || list.type !== 'ul') { flushList(); list = { type: 'ul', items: [] }; }
+          list.items.push({ text: bulletMatch[1] });
+          continue;
+        }
+
+        flushList();
+        paragraphBuf.push(line.trim());
+      }
+
+      flushParagraph();
+      flushList();
+      return html || '<p class="text-xs text-slate-400 italic">No details provided yet.</p>';
     }
 
     function renderChangelog(rawText) {
@@ -462,6 +625,8 @@
       const emptyView = document.getElementById('kcar-empty-view');
       const metaRow = document.getElementById('meta-timestamps');
       const probPanel = document.getElementById('kcar-probabilistic-panel');
+      const isVerificationTab = tabKey.startsWith('day_minus');
+      const runLabel = isVerificationTab ? 'Model Run' : 'Latest Model Run';
 
       if (!data) {
         dataView.classList.add('hidden');
@@ -475,14 +640,14 @@
         dataView.classList.add('hidden');
         emptyView.classList.remove('hidden');
         emptyView.innerHTML = `No Data Available <span class="block text-xs font-medium text-slate-500 mt-1 not-italic">TdAI Run Bypassed &rarr; ${data.status}</span>`;
-        metaRow.innerHTML = `Valid Time: <span class="text-indigo-400 font-bold">${data.validTimeStr} UTC</span> &nbsp;|&nbsp; Pipeline Log: <span class="text-rose-400 font-black uppercase tracking-wider">${data.status}</span>`;
+        metaRow.innerHTML = `Valid Time: <span class="text-indigo-400 font-bold">${data.validTimeStr} UTC</span> &nbsp;|&nbsp; ${runLabel}: <span class="text-slate-200 font-bold">${data.runTimeStr}</span>`;
         return;
       }
 
       dataView.classList.remove('hidden');
       emptyView.classList.add('hidden');
 
-      metaRow.innerHTML = `Valid Time: <span class="text-indigo-400 font-bold">${data.validTimeStr} UTC</span> &nbsp;|&nbsp; Latest Model Run: <span class="text-slate-200 font-bold">${data.runTimeStr}</span>`;
+      metaRow.innerHTML = `Valid Time: <span class="text-indigo-400 font-bold">${data.validTimeStr} UTC</span> &nbsp;|&nbsp; ${runLabel}: <span class="text-slate-200 font-bold">${data.runTimeStr}</span>`;
 
       document.getElementById('kcar-nbm-dew').innerText = data.nbmDew + "°F";
       document.getElementById('kcar-nbm-rh').innerText = data.nbmRh + "% RH";
