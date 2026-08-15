@@ -1,3 +1,8 @@
+TdAI v3.1
+1) 15-21 average sky cover replaces just 21z sky cover as a predictor
+2) Cases where the sub-800mb average RH was greater than 80% and the NBM error (NBM-ASOS) were high
+were removed from the training dataset. These are likely non-boundary layer driven busts we don't want the model to learn from
+
 TdAI v3.0
 1) Separate models are now used for each operational forecast cycle 
 (03z Day 1, 03z Day 2, 15z Day 1, & 15z Day 2)

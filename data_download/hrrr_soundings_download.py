@@ -9,46 +9,56 @@ import gc
 warnings.filterwarnings("ignore", message="This pattern is interpreted as a regular expression")
 
 # --- HRRR RUN CONFIG ---
-# Change these two values to switch which run/forecast-hour combo you're downloading,
-# e.g. HRRR_12z_f03, HRRR_12z_f09, HRRR_00z_f21, HRRR_00z_f45
-INIT_HOUR = 12   # HRRR init/cycle hour (UTC): 0 or 12
-FXX = 33          # forecast lead hour (fxx)
+# Loops over all 4 operational cycles used by TdAI (matches the CYCLES config
+# in model_training/TdAI_v3.1_Deterministic_TRAINING.py): init hour, forecast
+# lead hour, and the run label used in filenames/logs.
+CYCLES = [
+    (12, 9, '12z_f09'),
+    (12, 33, '12z_f33'),
+    (0, 21, '00z_f21'),
+    (0, 45, '00z_f45'),
+]
 
 # --- STATIONS ---
-STATION_ID = "KCAR"
-STATION_LAT, STATION_LON = 46.870490, -68.017221
+# STATION_ID = "KCAR"
+# STATION_LAT, STATION_LON = 46.870490, -68.017221
 # STATION_ID = "KBGR"
 # STATION_LAT, STATION_LON = 44.8074, -68.8281
 # STATION_ID = "KBHB"
-# STATION_LAT, STATION_LON = 44.4496, -68.3613
+# STATION_LAT, STATION_LON = 44.452318, -68.370777
 # STATION_ID = "KGNR"
 # STATION_LAT, STATION_LON = 45.462979, -69.554546
-# STATION_ID = "KBGM"
-# STATION_LAT, STATION_LON = 42.206794, -75.979922
-# STATION_ID = "KALB"
-# STATION_LAT, STATION_LON = 42.747229, -73.799128
+# STATION_ID = "KMLT"
+# STATION_LAT, STATION_LON = 45.647771, -68.692475
+# STATION_ID = "KHUL"
+# STATION_LAT, STATION_LON = 46.118457, -67.792894
+STATION_ID = "KFVE"
+STATION_LAT, STATION_LON = 47.285172, -68.307131
+
 
 # Station coords df
 station_coords = pd.DataFrame({"longitude": [STATION_LON], "latitude": [STATION_LAT]})
 
-# Run label used in filenames/logs, e.g. "12z_f03"
-RUN_LABEL = f"{INIT_HOUR:02d}z_f{FXX:02d}"
+# Base output dir - per-cycle subfolder is created inside download_hrrr_hour,
+# since the cycle now varies per task instead of being fixed for the whole run.
+base_output_dir = Path(r"/home/sean834/TdAI/data_download/HRRR_forecast_soundings") / STATION_ID
 
-# Use Pathlib for more robust Windows path handling
-output_dir = Path(r"/home/sean834/TdAI/HRRR_forecast_soundings") / STATION_ID / RUN_LABEL
-output_dir.mkdir(parents=True, exist_ok=True)
-
-def download_hrrr_hour(run_date):
+def download_hrrr_hour(args):
     """
-    run_date: The calendar day of the HRRR run (init hour is fixed via INIT_HOUR).
-    Downloads the INIT_HOUR run and the FXX forecast hour from it.
+    args: (run_date, init_hour, fxx, run_label)
+    run_date: The calendar day of the HRRR run.
+    Downloads the init_hour run and the fxx forecast hour from it.
     """
-    init_time = run_date.replace(hour=INIT_HOUR, minute=0, second=0, microsecond=0)
-    lead_time = FXX
+    run_date, init_hour, fxx, run_label = args
+    init_time = run_date.replace(hour=init_hour, minute=0, second=0, microsecond=0)
+    lead_time = fxx
     valid_time = init_time + pd.Timedelta(hours=lead_time)
 
+    output_dir = base_output_dir / run_label
+    output_dir.mkdir(parents=True, exist_ok=True)
+
     file_timestamp = init_time.strftime("%Y%m%d")
-    save_path = output_dir / f"hrrr_{RUN_LABEL}_{STATION_ID.lower()}_{file_timestamp}.csv"
+    save_path = output_dir / f"hrrr_{run_label}_{STATION_ID.lower()}_{file_timestamp}.csv"
 
     if save_path.exists():
         return # Skip
@@ -84,10 +94,10 @@ def download_hrrr_hour(run_date):
 
         df.to_csv(save_path, index=False)
 
-        print(f"✅ Saved {RUN_LABEL} Forecast: {file_timestamp}")
+        print(f"✅ Saved {run_label} Forecast: {file_timestamp}")
 
     except Exception as e:
-        print(f"❌ Error {file_timestamp}: {str(e)[:50]}")
+        print(f"❌ Error {run_label} {file_timestamp}: {str(e)[:50]}")
         
     finally:
         # --- THE MEMORY CLEANUP ---
@@ -110,22 +120,23 @@ def download_hrrr_hour(run_date):
 
 
 if __name__ == "__main__":
-    print(f"🚀 Downloading run: HRRR_{RUN_LABEL}")
+    print(f"🚀 Downloading {STATION_ID} across {len(CYCLES)} cycles: {[c[2] for c in CYCLES]}")
 
-    # One run per day (init hour is fixed via INIT_HOUR above)
-    all_dates = []
+    all_tasks = []
     for year in range(2020, 2027):
         days = pd.date_range(start=f"{year}-03-01", end=f"{year}-11-15", freq='D')
-        all_dates.extend(days)
+        for init_hour, fxx, run_label in CYCLES:
+            for d in days:
+                all_tasks.append((d, init_hour, fxx, run_label))
 
-    print(f"🚀 Total files to process: {len(all_dates)}")
+    print(f"🚀 Total files to process: {len(all_tasks)}")
 
-    
+
     # Process the data in parallel and in chunks (to save memory)
     chunk_size = 100
-    for i in range(0, len(all_dates), chunk_size):
-        chunk = all_dates[i : i + chunk_size]
-        print(f"📦 Batch {i//chunk_size + 1}...")
+    for i in range(0, len(all_tasks), chunk_size):
+        chunk = all_tasks[i : i + chunk_size]
+        print(f"📦 Batch {i//chunk_size + 1}/{(len(all_tasks)-1)//chunk_size + 1}...")
 
         # Use ProcessPool instead of ThreadPool. ThreadPool crashes EVERYTHING!!!
         # Set max_workers to 4 or 6 (don't max out your CPU)

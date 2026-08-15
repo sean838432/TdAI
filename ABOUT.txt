@@ -19,7 +19,7 @@ TdAI is a machine learning model designed to bias correct the NBM's deterministi
 ## Feature Variables
 * NBM Temperature (°C)
 * NBM RH (%)
-* NBM Sky (%)
+* NBM 15z-21z Avg Sky (%)
 * NBM Mixing Height (100s of ft AGL)
 * NBM Wind Speed (kts)
 * NBM Wind Direction (deg)

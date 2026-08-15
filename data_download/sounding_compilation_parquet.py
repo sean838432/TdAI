@@ -5,8 +5,8 @@
 import pandas as pd
 from pathlib import Path
 
-STATION_ID = "KCAR"
-station_dir = Path(r"/home/sean834/TdAI/HRRR_forecast_soundings") / STATION_ID
+STATION_ID = "KFVE"
+station_dir = Path(r"/home/sean834/TdAI/data_download/HRRR_forecast_soundings") / STATION_ID
 
 # Each subfolder of station_dir is a run/forecast-hour combo, e.g. 12z_f09, 12z_f36
 run_dirs = sorted(d for d in station_dir.iterdir() if d.is_dir())

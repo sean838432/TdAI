@@ -23,7 +23,7 @@ TdAI is an NBM postprocessing model that uses a Gradient Boosted Decision Tree (
 ### Feature Variables
 * NBM Temperature (°C)
 * NBM RH (%)
-* NBM Sky (%)
+* NBM 15z-21z Avg Sky (%)
 * NBM Mixing Height (100s of ft AGL)
 * NBM Wind Speed (kts)
 * NBM Wind Direction (deg)
@@ -58,6 +58,4 @@ The repository consists of three main components:
 
 ## Future Additions
 
-* Add HRRR soil moisture and/or recent precipitation to the training dataset feature matrix
-* Add 15–21z average (rather than strictly 21z point value) NBM Sky Cover as a predictor
-* Expand model training across additional WFO Caribou ASOS sites (*KBHB, KBGR, KGNR, KMLT, K40B, etc.*)
+* Add a continual training workflow so the model is retrained at the end of every month with that month's new data. Then drop off the earliest month so that it gradually eliminates old NBM versions
