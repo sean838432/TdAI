@@ -1,4 +1,4 @@
-TdAI is a machine learning model designed to bias correct the NBM's deterministic forecast and probabilistic distribution.
+TdAI is a machine learning model designed to bias correct the NBM's deterministic dewpoint forecast and probabilistic distribution.
 
 ---
 
