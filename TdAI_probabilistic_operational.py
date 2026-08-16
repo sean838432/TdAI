@@ -81,8 +81,12 @@ def write_winter_pause_status(station, base_path):
     else:
         combined_log_df = pd.DataFrame(columns=OUTPUT_HEADERS)
 
+    # Anchor to UTC, not the local machine's timezone - a script running on
+    # a non-UTC machine near a UTC day boundary would otherwise write
+    # placeholder rows for the wrong calendar date (see the equivalent bug
+    # in main()'s HRRR/NBM date selection).
     current_time_utc = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
-    today = datetime.date.today()
+    today = current_time_utc.date()
     target_valid_times = [
         datetime.datetime.combine(today, datetime.time(21, 0)),
         datetime.datetime.combine(today + datetime.timedelta(days=1), datetime.time(21, 0)),
@@ -645,7 +649,16 @@ def main():
     seed_everything(42)
     base_path = "./"
 
-    if is_winter_pause(datetime.date.today()):
+    # Anchor everything to UTC, not the local machine's timezone. GitHub
+    # Actions runners default to TZ=UTC so this bug never showed up on the
+    # cron, but a machine running this manually from a non-UTC timezone
+    # (e.g. US Eastern) can be a full calendar day behind UTC for several
+    # hours around each UTC midnight, which used to make date.today() return
+    # the wrong day for the HRRR/NBM cycle being targeted.
+    current_time_utc = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
+    today = current_time_utc.date()
+
+    if is_winter_pause(today):
         print(f"❄️ {WINTER_PAUSE_STATUS} (outside the March 1 - November 15 training window). "
               f"Skipping HRRR/NBM downloads and writing status rows only.")
         for station in STATIONS:
@@ -660,9 +673,6 @@ def main():
     #    (one shared download - every station's point is extracted from the
     #    same GRIB files in process_station, no need to redownload per station)
     # -------------------------------------------------------------------------
-    current_time_utc = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
-
-    today = datetime.date.today()
     yesterday = today - datetime.timedelta(days=1)
 
     if current_time_utc.hour < 14:

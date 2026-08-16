@@ -75,8 +75,12 @@ def write_winter_pause_status(station, base_path):
     else:
         combined_log_df = pd.DataFrame(columns=OUTPUT_HEADERS)
 
+    # Anchor to UTC, not the local machine's timezone - a script running on
+    # a non-UTC machine near a UTC day boundary would otherwise write
+    # placeholder rows for the wrong calendar date (see the equivalent bug
+    # in main()'s HRRR/NBM date selection).
     current_time_utc = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
-    today = datetime.date.today()
+    today = current_time_utc.date()
     target_valid_times = [
         datetime.datetime.combine(today, datetime.time(21, 0)),
         datetime.datetime.combine(today + datetime.timedelta(days=1), datetime.time(21, 0)),
@@ -490,15 +494,24 @@ def process_station(station, lat, lon, target_run_hour, forecast_hours, date_str
             # one) preserves the true combined seasonal contribution instead
             # of silently discarding half of it, and keeps seasonality from
             # eating two of the five display slots for the same concept.
+            #
+            # SIGN FLIP: the model predicts Target Error (F) = NBM - ASOS
+            # directly, so a raw SHAP value is that feature's contribution to
+            # the ERROR, not to the corrected dewpoint. Corrected Dewpoint =
+            # NBM - Bias, so a feature pushing the error UP actually pushes
+            # the forecast dewpoint DOWN. Negating here makes the stored/
+            # displayed sign mean "contribution to Td" (positive = pushes Td
+            # up, negative = pushes Td down/drier), matching the dashboard's
+            # delta badge convention (positive delta = TdAI raised Td).
             feature_order = cfg['feature_order']
             season_idx = [i for i, f in enumerate(feature_order) if f in ('sin_season', 'cos_season')]
             other_idx = [i for i in range(len(feature_order)) if i not in season_idx]
 
             top_drivers_strs = []
             for row_shap in shap_values:
-                combined_values = {feature_order[i]: row_shap[i] for i in other_idx}
+                combined_values = {feature_order[i]: -row_shap[i] for i in other_idx}
                 if season_idx:
-                    combined_values['Time of Year'] = sum(row_shap[i] for i in season_idx)
+                    combined_values['Time of Year'] = -sum(row_shap[i] for i in season_idx)
 
                 top_items = sorted(combined_values.items(), key=lambda kv: -abs(kv[1]))[:5]
                 driver_str = " | ".join(f"{name}: {val:+.2f}F" for name, val in top_items)
@@ -679,7 +692,16 @@ def main():
     seed_everything(42)
     base_path = "./"
 
-    if is_winter_pause(datetime.date.today()):
+    # Anchor everything to UTC, not the local machine's timezone. GitHub
+    # Actions runners default to TZ=UTC so this bug never showed up on the
+    # cron, but a machine running this manually from a non-UTC timezone
+    # (e.g. US Eastern) can be a full calendar day behind UTC for several
+    # hours around each UTC midnight, which used to make date.today() return
+    # the wrong day for the HRRR/NBM cycle being targeted.
+    current_time_utc = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
+    today = current_time_utc.date()
+
+    if is_winter_pause(today):
         print(f"❄️ {WINTER_PAUSE_STATUS} (outside the March 1 - November 15 training window). "
               f"Skipping HRRR/NBM downloads and writing status rows only.")
         for station in STATIONS:
@@ -694,9 +716,6 @@ def main():
     #    (one shared download - every station's point is extracted from the
     #    same GRIB files in process_station, no need to redownload per station)
     # -------------------------------------------------------------------------
-    current_time_utc = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
-
-    today = datetime.date.today()
     yesterday = today - datetime.timedelta(days=1)
 
     if current_time_utc.hour < 14:

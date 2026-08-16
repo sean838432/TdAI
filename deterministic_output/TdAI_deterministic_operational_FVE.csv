@@ -1,4 +1,4 @@
 valid_time,TdAI Run Time (UTC),TdAI Status,NBM Temperature (F),NBM Dewpoint (F),TdAI Predicted Bias (F),TdAI Corrected Dewpoint (F),ASOS Ground Truth Dewpoint (F),Raw NBM Error (F),Post TdAI Error (F),TdAI Skill Score (%),TdAI Top Drivers
 2026-08-15 21:00:00,2026-08-15 21:43 UTC,Active,68.0,46.0,0.0,46.0,48.0,-2.0,-2.0,0.0,Time of Year: -0.64F | rh_875: -0.34F | NBM Cloud Cover (%): +0.32F | rh_825: -0.22F | rh_850: -0.18F
-2026-08-16 21:00:00,2026-08-16 02:48 UTC,Active,71.0,51.0,0.1,50.9,,,,,Time of Year: -0.80F | rh_850: -0.13F | rh_800: +0.13F | 700mb-500mb Lapse Rate (C/km): -0.13F | hrrr_lpw (mm): -0.12F
-2026-08-17 21:00:00,2026-08-16 02:48 UTC,"RH > 60 %, Sky > 60 %",,,0.0,,,,,,
+2026-08-16 21:00:00,2026-08-16 03:21 UTC,Active,71.0,51.0,0.1,50.9,,,,,Time of Year: +0.80F | rh_850: +0.13F | rh_800: -0.13F | 700mb-500mb Lapse Rate (C/km): +0.13F | hrrr_lpw (mm): +0.12F
+2026-08-17 21:00:00,2026-08-16 03:21 UTC,"RH > 60 %, Sky > 60 %",,,0.0,,,,,,
