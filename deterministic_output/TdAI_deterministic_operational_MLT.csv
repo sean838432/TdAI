@@ -1,5 +1,5 @@
 valid_time,TdAI Run Time (UTC),TdAI Status,NBM Temperature (F),NBM Dewpoint (F),TdAI Predicted Bias (F),TdAI Corrected Dewpoint (F),ASOS Ground Truth Dewpoint (F),Raw NBM Error (F),Post TdAI Error (F),TdAI Skill Score (%),TdAI Top Drivers
 2026-08-15 21:00:00,2026-08-15 21:43 UTC,Active,75.0,48.0,0.2,47.8,48.0,0.0,-0.2,0.0,Time of Year: -0.45F | rh_925: +0.23F | NBM Mixing Height (100s ft AGL): -0.22F | rh_800: -0.13F | rh_975: +0.12F
 2026-08-16 21:00:00,2026-08-16 14:47 UTC,Sky > 60 %,,,0.0,,53.0,,,,
-2026-08-17 21:00:00,2026-08-17 02:47 UTC,"RH > 60 %, Sky > 60 %",,,0.0,,,,,,
-2026-08-18 21:00:00,2026-08-17 02:47 UTC,"RH > 60 %, Sky > 60 %",,,0.0,,,,,,
+2026-08-17 21:00:00,2026-08-17 14:47 UTC,"RH > 60 %, Sky > 60 %",,,0.0,,,,,,
+2026-08-18 21:00:00,2026-08-17 14:47 UTC,"RH > 60 %, Sky > 60 %",,,0.0,,,,,,
