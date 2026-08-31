@@ -15,4 +15,5 @@ valid_time,TdAI Run Time (UTC),TdAI Status,NBM Temperature (F),NBM Dewpoint (F),
 2026-08-28 21:00:00,2026-08-28 14:48 UTC,"RH > 60 %, Sky > 60 %",,,0.0,,68.0,,,,,
 2026-08-29 21:00:00,2026-08-29 14:47 UTC,Active,75.0,45.0,0.6,44.4,44.0,1.0,0.4,60.0,rh_975: -0.70F | Time of Year: +0.69F | NBM Cloud Cover (%): -0.42F | 1000mb-700mb Lapse Rate (C/km): +0.27F | hrrr_lpw (mm): -0.20F,
 2026-08-30 21:00:00,2026-08-30 23:54 UTC,"RH > 60 %, Sky > 60 %",,,0.0,,57.0,,,,,
-2026-08-31 21:00:00,2026-08-30 23:54 UTC,Active,76.0,46.0,2.5,43.5,,,,,Time of Year: +0.88F | rh_500: -0.55F | rh_975: -0.43F | NBM Cloud Cover (%): -0.32F | rh_1000: -0.26F,12.0
+2026-08-31 21:00:00,2026-08-31 02:47 UTC,Active,75.0,48.0,2.1,45.9,,,,,Time of Year: +0.65F | rh_975: -0.61F | NBM Cloud Cover (%): -0.32F | rh_500: -0.30F | rh_1000: -0.27F,12.0
+2026-09-01 21:00:00,2026-08-31 02:47 UTC,Active,73.0,52.0,0.9,51.1,,,,,rh_975: +0.35F | NBM Wind Direction (deg): -0.32F | Time of Year: +0.29F | rh_1000: +0.23F | rh_500: -0.22F,11.0
