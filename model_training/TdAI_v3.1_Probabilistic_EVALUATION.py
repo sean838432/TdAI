@@ -31,6 +31,7 @@ HOLDOUT_YEAR = 2025
 do_scatter_plot = True
 do_ci_band_plot = True
 do_gated_coverage_check = True
+do_ungated_coverage_check = True
 do_pit_and_crps_check = True
 
 N_CI_BAND_BINS = 10
@@ -132,6 +133,46 @@ def load_gated_probabilistic(station, c_name):
         X_gated = X_gated[trained_features]
 
     return X_gated, y_gated, models_dict
+
+
+def load_ungated_probabilistic(station, c_name):
+    """Same as load_gated_probabilistic but applies NO filter at all - the
+    full HOLDOUT_YEAR test set, matching the population the quantile models
+    were actually trained on (training never applies the operational gate
+    either). This is the fairest train/test consistency check: does the
+    model generalize to a fresh sample of the SAME population it learned
+    from. It is a different question from the gated-only check (which asks
+    whether the model is calibrated under the specific conditions it's
+    actually deployed under) - report both, neither replaces the other.
+    Returns None if unavailable."""
+    dataset_full_path = os.path.join(training_dataset_path, f"TdAI_Training_Data_{station}_{c_name}.csv")
+    model_full_path = os.path.join(models_output_path, station, f"tdai_probabilistic_model_{station}_{c_name}.joblib")
+    schema_full_path = os.path.join(models_output_path, station, f"probabilistic_model_feature_schema_{station}_{c_name}.joblib")
+
+    if not (os.path.exists(dataset_full_path) and os.path.exists(model_full_path)):
+        print(f"⚠️ Missing dataset or model for K{station} {c_name}. Skipping.")
+        return None
+
+    df = pd.read_csv(dataset_full_path)
+    if 'valid_time' in df.columns:
+        df = df.set_index('valid_time')
+    df.index = pd.to_datetime(df.index)
+
+    X = df.drop(columns=['Target Error (F)'], errors='ignore')
+    y = df['Target Error (F)']
+    X_test, y_test = X[X.index.year == HOLDOUT_YEAR], y[X.index.year == HOLDOUT_YEAR]
+
+    if X_test.empty:
+        print(f"⚠️ No {HOLDOUT_YEAR} validation samples for K{station} {c_name}. Skipping.")
+        return None
+
+    models_dict = joblib.load(model_full_path)
+
+    if os.path.exists(schema_full_path):
+        trained_features = joblib.load(schema_full_path)
+        X_test = X_test[trained_features]
+
+    return X_test, y_test, models_dict
 
 
 ####################################################################
@@ -438,6 +479,85 @@ if do_gated_coverage_check:
 ####################################################################
 #                                                                  #
 #                TdAI PROBABILISTIC PERFORMANCE EVALUATION         #
+#          (Calibration Check, FULLY UNGATED - No Operational      #
+#              Gate, No Moist-Bust Filter, All Cycles Pooled)      #
+#                                                                  #
+####################################################################
+
+if do_ungated_coverage_check:
+    print("\n" + "=" * 70)
+    print(f" UNGATED CALIBRATION CHECK ({HOLDOUT_YEAR}, No Operational Gate, No Moist-Bust Filter)")
+    print(" (Matches the full population the quantile models were actually trained on - the")
+    print("  fairest train/test consistency check, distinct from the gated-only operational check above)")
+    print("=" * 70)
+
+    ungated_station_results = {}
+    all_actual, all_q10, all_q25, all_q75, all_q90 = [], [], [], [], []
+
+    for station in STATIONS:
+        actual_list, q10_list, q25_list, q75_list, q90_list = [], [], [], [], []
+
+        for c_name in CYCLE_NAMES:
+            loaded = load_ungated_probabilistic(station, c_name)
+            if loaded is None:
+                continue
+            X_test, y_test, models_dict = loaded
+
+            actual_list.append(y_test.values)
+            q10_list.append(models_dict['q10'].predict(X_test))
+            q25_list.append(models_dict['q25'].predict(X_test))
+            q75_list.append(models_dict['q75'].predict(X_test))
+            q90_list.append(models_dict['q90'].predict(X_test))
+
+        if not actual_list:
+            continue
+
+        actual = np.concatenate(actual_list)
+        q10 = np.concatenate(q10_list)
+        q25 = np.concatenate(q25_list)
+        q75 = np.concatenate(q75_list)
+        q90 = np.concatenate(q90_list)
+
+        coverage_50 = np.mean((actual >= q25) & (actual <= q75)) * 100.0
+        coverage_80 = np.mean((actual >= q10) & (actual <= q90)) * 100.0
+        pct_above_90 = np.mean(actual > q90) * 100.0
+        pct_below_10 = np.mean(actual < q10) * 100.0
+
+        ungated_station_results[station] = (len(actual), coverage_50, coverage_80, pct_above_90, pct_below_10)
+
+        all_actual.append(actual)
+        all_q10.append(q10)
+        all_q25.append(q25)
+        all_q75.append(q75)
+        all_q90.append(q90)
+
+    if not ungated_station_results:
+        print("⚠️ No stations had usable data for the ungated coverage check.")
+    else:
+        print(f"\n{'Station':<8}{'n':>6}{'50% CI cov':>12}{'80% CI cov':>12}{'% above 90th':>15}{'% below 10th':>15}")
+        for station, (n, c50, c80, above90, below10) in ungated_station_results.items():
+            print(f"{station:<8}{n:>6}{c50:>11.1f}%{c80:>11.1f}%{above90:>14.1f}%{below10:>14.1f}%")
+
+        actual_all = np.concatenate(all_actual)
+        q10_all = np.concatenate(all_q10)
+        q25_all = np.concatenate(all_q25)
+        q75_all = np.concatenate(all_q75)
+        q90_all = np.concatenate(all_q90)
+
+        coverage_50_all = np.mean((actual_all >= q25_all) & (actual_all <= q75_all)) * 100.0
+        coverage_80_all = np.mean((actual_all >= q10_all) & (actual_all <= q90_all)) * 100.0
+        above_90_all = np.mean(actual_all > q90_all) * 100.0
+        below_10_all = np.mean(actual_all < q10_all) * 100.0
+
+        print("-" * 68)
+        print(f"{'ALL':<8}{len(actual_all):>6}{coverage_50_all:>11.1f}%{coverage_80_all:>11.1f}%{above_90_all:>14.1f}%{below_10_all:>14.1f}%")
+
+    print("\n✨ UNGATED CALIBRATION CHECK COMPLETE!")
+
+
+####################################################################
+#                                                                  #
+#                TdAI PROBABILISTIC PERFORMANCE EVALUATION         #
 #     (PIT Histogram + Aggregate CRPS-Style Score, Operational      #
 #            Gate Only - No Moist-Bust Filter, Per Station)        #
 #                                                                  #
@@ -468,7 +588,7 @@ if do_pit_and_crps_check:
     os.makedirs(pit_output_path, exist_ok=True)
 
     print("\n" + "=" * 70)
-    print(f" PIT HISTOGRAM + AGGREGATE CRPS-STYLE SCORE ({HOLDOUT_YEAR}, Operational Gate Only, No Moist-Bust Filter)")
+    print(f" PIT HISTOGRAM + AGGREGATE CRPS-STYLE SCORE ({HOLDOUT_YEAR}, Ungated, No Moist-Bust Filter)")
     print("=" * 70)
 
     QUANTILE_LEVELS = np.array([0.10, 0.25, 0.50, 0.75, 0.90])
@@ -510,20 +630,20 @@ if do_pit_and_crps_check:
         actual_list, q10_list, q25_list, q50_list, q75_list, q90_list = [], [], [], [], [], []
 
         for c_name in CYCLE_NAMES:
-            loaded = load_gated_probabilistic(station, c_name)
+            loaded = load_ungated_probabilistic(station, c_name)
             if loaded is None:
                 continue
-            X_gated, y_gated, models_dict = loaded
+            X_test, y_test, models_dict = loaded
 
-            actual_list.append(y_gated.values)
-            q10_list.append(models_dict['q10'].predict(X_gated))
-            q25_list.append(models_dict['q25'].predict(X_gated))
-            q50_list.append(models_dict['q50'].predict(X_gated))
-            q75_list.append(models_dict['q75'].predict(X_gated))
-            q90_list.append(models_dict['q90'].predict(X_gated))
+            actual_list.append(y_test.values)
+            q10_list.append(models_dict['q10'].predict(X_test))
+            q25_list.append(models_dict['q25'].predict(X_test))
+            q50_list.append(models_dict['q50'].predict(X_test))
+            q75_list.append(models_dict['q75'].predict(X_test))
+            q90_list.append(models_dict['q90'].predict(X_test))
 
         if not actual_list:
-            print(f"⚠️ No {HOLDOUT_YEAR} gated samples across any cycle for K{station}. Skipping.")
+            print(f"⚠️ No {HOLDOUT_YEAR} samples across any cycle for K{station}. Skipping.")
             continue
 
         actual = np.concatenate(actual_list)
@@ -586,22 +706,26 @@ if do_pit_and_crps_check:
 
             ax.set_xlim(0, 1)
 
-            # Plain-English direction arrows, anchored in axes-fraction space
-            # (not data space) so they sit in a fixed strip above every
-            # panel regardless of bar heights, with no risk of overlapping
-            # the bars or a legend box
-            ax.set_title(f'K{station} (n={n_obs})', fontsize=10, fontweight='bold', pad=48)
+            # Station label lives inside the axes itself (upper right) instead
+            # of an external title/subtitle band - removes the need to reserve
+            # any vertical margin above the plot at all.
+            ax.text(0.97, 0.95, f'K{station} (n={n_obs})', ha='right', va='top',
+                    fontsize=11, fontweight='bold', color='black', transform=ax.transAxes,
+                    bbox=dict(boxstyle='round,pad=0.3', facecolor='white', edgecolor='gray', alpha=0.85))
 
+            # Plain-English direction arrows, kept snug against the axes top
+            # (small axes-fraction offset, no title above them competing for
+            # space) so they don't reintroduce the large white gap.
             ax.annotate('', xy=(0.02, 1.05), xytext=(0.47, 1.05), xycoords='axes fraction',
-                        arrowprops=dict(arrowstyle='->', color='firebrick', lw=1.8), annotation_clip=False)
-            ax.text(0.245, 1.065, 'TdAI OVER-predicted (actual came in lower)',
-                    ha='center', va='bottom', fontsize=8, color='firebrick', fontweight='bold',
+                        arrowprops=dict(arrowstyle='->', color='firebrick', lw=1.6), annotation_clip=False)
+            ax.text(0.245, 1.06, 'Model OVER-predicted',
+                    ha='center', va='bottom', fontsize=10, color='firebrick', fontweight='bold',
                     transform=ax.transAxes)
 
             ax.annotate('', xy=(0.98, 1.05), xytext=(0.53, 1.05), xycoords='axes fraction',
-                        arrowprops=dict(arrowstyle='->', color='steelblue', lw=1.8), annotation_clip=False)
-            ax.text(0.755, 1.065, 'TdAI UNDER-predicted (actual came in higher)',
-                    ha='center', va='bottom', fontsize=8, color='steelblue', fontweight='bold',
+                        arrowprops=dict(arrowstyle='->', color='steelblue', lw=1.6), annotation_clip=False)
+            ax.text(0.755, 1.06, 'Model UNDER-predicted',
+                    ha='center', va='bottom', fontsize=10, color='steelblue', fontweight='bold',
                     transform=ax.transAxes)
 
             ax.set_xlabel('PIT Value', fontsize=10)
@@ -612,11 +736,11 @@ if do_pit_and_crps_check:
             ax.axis('off')
 
         fig.suptitle(
-            f'PIT Histogram by Station ({HOLDOUT_YEAR}, Operational Gate Only, All Cycles Pooled)\n'
+            f'PIT Histogram by Station ({HOLDOUT_YEAR}, Ungated, All Cycles Pooled)\n'
             f'Flat/even bars = well calibrated   |   Taller on left = model runs too high   |   Taller on right = model runs too low',
             fontsize=12, fontweight='bold'
         )
-        fig.subplots_adjust(hspace=0.55, wspace=0.25, top=0.87, bottom=0.05, left=0.06, right=0.98)
+        fig.subplots_adjust(hspace=0.32, wspace=0.18, top=0.92, bottom=0.05, left=0.06, right=0.98)
 
         pit_plot_path = os.path.join(pit_output_path, "probabilistic_pit_histogram_by_station.png")
         fig.savefig(pit_plot_path, dpi=150)

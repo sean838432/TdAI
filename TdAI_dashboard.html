@@ -322,10 +322,9 @@
       return `
       <div id="card-${station}" class="bg-slate-800 rounded-2xl shadow-xl border border-slate-700/60 overflow-visible transition-all duration-300 flex flex-col justify-between">
         <div>
-          <div class="bg-slate-900 rounded-t-2xl px-5 py-3 border-b border-slate-700/50 text-white font-extrabold text-lg tracking-wide flex justify-between items-center">
-            <span class="flex items-center gap-2">
-              <span class="text-xl font-black text-white">K${station}</span>
-            </span>
+          <div id="${s}-card-header" class="bg-slate-900 rounded-t-2xl px-5 py-3 border-b border-slate-700/50 text-white font-extrabold text-lg tracking-wide flex flex-wrap justify-between items-center gap-x-2 transition-colors duration-300">
+            <span class="text-xl font-black text-white">K${station}</span>
+            <span id="${s}-rfw-badge" class="hidden text-red-400 font-black text-xs sm:text-sm tracking-wide text-right"></span>
           </div>
 
           <div class="px-4 pt-4 pb-1.5 space-y-3">
@@ -486,6 +485,7 @@
       const idxNbmTemp   = detHeaders.indexOf('NBM Temperature (F)');
       const idxNbmDew    = detHeaders.indexOf('NBM Dewpoint (F)');
       const idxNbmRh     = detHeaders.indexOf('NBM RH (%)');
+      const idxNbmGust   = detHeaders.indexOf('NBM Max Wind Gust 15-21Z (kts)');
       const idxTdaiDew   = detHeaders.indexOf('TdAI Corrected Dewpoint (F)');
       const idxRunTime   = detHeaders.indexOf('TdAI Run Time (UTC)');
       const idxAsosDew   = detHeaders.indexOf('ASOS Ground Truth Dewpoint (F)');
@@ -532,6 +532,7 @@
         const nbmTemp = parseFloat(row[idxNbmTemp]);
         const nbmDew  = parseFloat(row[idxNbmDew]);
         const nbmRh   = parseFloat(row[idxNbmRh]);
+        const nbmGustKts = parseFloat(row[idxNbmGust]);
         const tdaiDew = parseFloat(row[idxTdaiDew]);
         const rowRunTimeStr = row[idxRunTime] ? row[idxRunTime].replace(/"/g, '').trim() : "N/A";
 
@@ -546,6 +547,8 @@
           nbmRh: "--",
           tdaiDew: isNaN(tdaiDew) ? "--.-" : tdaiDew.toFixed(1),
           tdaiRh: "--",
+          gustMph: "--",
+          rfw: { nbmMet: false, tdaiMet: false },
           delta: "--.-",
           deltaValue: 0.0,
           isVerified: false,
@@ -571,20 +574,35 @@
             const tc = (tempF - 32) * (5.0 / 9.0);
             const es = 6.112 * Math.exp((17.67 * tc) / (tc + 243.5));
 
+            let nbmRhNum = null;
             if (!isNaN(nbmRh)) {
-              parsedRowObj.nbmRh = nbmRh.toFixed(0);
+              nbmRhNum = nbmRh;
             } else if (nbmDewF !== null) {
               const tdc_nbm = (nbmDewF - 32) * (5.0 / 9.0);
               const e_nbm = 6.112 * Math.exp((17.67 * tdc_nbm) / (tdc_nbm + 243.5));
-              const calculatedNbmRh = Math.min(Math.max((e_nbm / es) * 100, 0.0), 100.0);
-              parsedRowObj.nbmRh = calculatedNbmRh.toFixed(0);
+              nbmRhNum = Math.min(Math.max((e_nbm / es) * 100, 0.0), 100.0);
             }
+            if (nbmRhNum !== null) parsedRowObj.nbmRh = nbmRhNum.toFixed(0);
 
+            let tdaiRhNum = null;
             if (tdaiDewF !== null) {
               const tdc_tdai = (tdaiDewF - 32) * (5.0 / 9.0);
               const e_tdai = 6.112 * Math.exp((17.67 * tdc_tdai) / (tdc_tdai + 243.5));
-              const calculatedTdaiRh = Math.min(Math.max((e_tdai / es) * 100, 0.0), 100.0);
-              parsedRowObj.tdaiRh = calculatedTdaiRh.toFixed(0);
+              tdaiRhNum = Math.min(Math.max((e_tdai / es) * 100, 0.0), 100.0);
+            }
+            if (tdaiRhNum !== null) parsedRowObj.tdaiRh = tdaiRhNum.toFixed(0);
+
+            // Red Flag Warning criteria: RH < 30% and wind gust > 25 mph.
+            // NBM reports gust in knots, so convert (1 kt = 1.15078 mph).
+            // Checked against both NBM's own RH and TdAI's corrected RH -
+            // same gust value for both, since TdAI only corrects dewpoint
+            // and has no wind forecast of its own.
+            if (!isNaN(nbmGustKts)) {
+              const gustMph = nbmGustKts * 1.15078;
+              parsedRowObj.gustMph = gustMph.toFixed(0);
+              const gustMet = gustMph > 25;
+              parsedRowObj.rfw.nbmMet = gustMet && nbmRhNum !== null && nbmRhNum < 30;
+              parsedRowObj.rfw.tdaiMet = gustMet && tdaiRhNum !== null && tdaiRhNum < 30;
             }
           }
 
@@ -737,10 +755,40 @@
       STATION_ORDER.forEach(station => renderStationTab(station, tabKey));
     }
 
+    // Red Flag Warning highlighting for a station card's header - "NBM
+    // and TdAI reached RFW criteria" if both hit RH<30%/gust>25mph,
+    // "TdAI reached RFW criteria" if only TdAI's corrected RH does
+    // (TdAI's guardrail never raises Td above NBM's, so TdAI's RH can
+    // never be higher than NBM's - "NBM met but TdAI didn't" can't occur).
+    function applyRfwStyling(station, rfw) {
+      const s = station.toLowerCase();
+      const cardEl = document.getElementById(`card-${station}`);
+      const headerEl = document.getElementById(`${s}-card-header`);
+      const badgeEl = document.getElementById(`${s}-rfw-badge`);
+
+      if (rfw && rfw.tdaiMet) {
+        badgeEl.textContent = rfw.nbmMet ? 'NBM and TdAI reached RFW criteria' : 'TdAI reached RFW criteria';
+        badgeEl.classList.remove('hidden');
+        headerEl.className = "bg-red-950/60 rounded-t-2xl px-5 py-3 border-b border-red-600/50 text-white font-extrabold text-lg tracking-wide flex flex-wrap justify-between items-center gap-x-2 transition-colors duration-300";
+        // bg-red-950 tints the whole card, not just the header - the
+        // semi-transparent slate panels inside (NBM Baseline, TdAI
+        // Deterministic, etc.) sit on top of this and pick up the same
+        // red cast since their own backgrounds are alpha < 1.
+        cardEl.className = "bg-red-950 rounded-2xl shadow-xl border-2 border-red-600/70 ring-2 ring-red-600/20 overflow-visible transition-all duration-300 flex flex-col justify-between";
+      } else {
+        badgeEl.textContent = '';
+        badgeEl.classList.add('hidden');
+        headerEl.className = "bg-slate-900 rounded-t-2xl px-5 py-3 border-b border-slate-700/50 text-white font-extrabold text-lg tracking-wide flex flex-wrap justify-between items-center gap-x-2 transition-colors duration-300";
+        cardEl.className = "bg-slate-800 rounded-2xl shadow-xl border border-slate-700/60 overflow-visible transition-all duration-300 flex flex-col justify-between";
+      }
+    }
+
     function renderStationTab(station, tabKey) {
       const s = station.toLowerCase();
       const stationTabs = stationDatasets[station];
       const data = stationTabs ? stationTabs[tabKey] : null;
+
+      applyRfwStyling(station, (data && !data.isBypassed) ? data.rfw : null);
 
       const dataView = document.getElementById(`${s}-data-view`);
       const emptyView = document.getElementById(`${s}-empty-view`);

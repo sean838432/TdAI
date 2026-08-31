@@ -37,7 +37,8 @@ STATIONS = {
 
 OUTPUT_HEADERS = [
     'valid_time', 'TdAI Run Time (UTC)', 'TdAI Status', 'NBM Temperature (F)',
-    'NBM Dewpoint (F)', 'TdAI Predicted Bias (F)', 'TdAI Corrected Dewpoint (F)', 'TdAI Top Drivers',
+    'NBM Dewpoint (F)', 'NBM Max Wind Gust 15-21Z (kts)', 'TdAI Predicted Bias (F)',
+    'TdAI Corrected Dewpoint (F)', 'TdAI Top Drivers',
     'ASOS Ground Truth Dewpoint (F)', 'Raw NBM Error (F)', 'Post TdAI Error (F)', 'TdAI Skill Score (%)'
 ]
 
@@ -104,6 +105,7 @@ def write_winter_pause_status(station, base_path):
             'TdAI Status': WINTER_PAUSE_STATUS,
             'NBM Temperature (F)': np.nan,
             'NBM Dewpoint (F)': np.nan,
+            'NBM Max Wind Gust 15-21Z (kts)': np.nan,
             'TdAI Predicted Bias (F)': 0.0,
             'TdAI Corrected Dewpoint (F)': np.nan,
             'TdAI Top Drivers': "",
@@ -259,6 +261,7 @@ def parse_nbm_station_block(bulletin_text, station_id):
         'UTC': 'UTC Hour', 'TMP': 'NBM Temperature (F)', 'DPT': 'NBM Dewpoint (F)',
         'SKY': 'NBM Cloud Cover (%)', 'WDR': 'NBM Wind Direction (tens deg)',
         'WSP': 'NBM Wind Speed (kts)', 'MHT': 'NBM Mixing Height (100s ft)',
+        'GST': 'NBM Wind Gust (kts)',
     }
     for line in station_lines:
         tokens = line.split()
@@ -353,6 +356,17 @@ def process_station(station, lat, lon, target_run_hour, forecast_hours, date_str
     sky_window = (nbm_df['valid_time'].dt.hour >= 15) & (nbm_df['valid_time'].dt.hour <= 21)
     cloud_cover_avg_by_date = nbm_df[sky_window].groupby('valid_date')['NBM Cloud Cover (%)'].mean()
     nbm_df['NBM Cloud Cover (%)'] = nbm_df['valid_date'].map(cloud_cover_avg_by_date)
+
+    # 15Z-21Z max wind gust - dashboard/Red Flag Warning display field only.
+    # This is never added to any model's feature_order, so it can't reach
+    # the GBDT as a predictor no matter what happens to it from here on.
+    print("💨 Computing 15Z-21Z max NBM wind gust (output field only, not a model input)...")
+    if 'NBM Wind Gust (kts)' in nbm_df.columns:
+        gust_max_by_date = nbm_df[sky_window].groupby('valid_date')['NBM Wind Gust (kts)'].max()
+        nbm_df['NBM Max Wind Gust 15-21Z (kts)'] = nbm_df['valid_date'].map(gust_max_by_date)
+    else:
+        nbm_df['NBM Max Wind Gust 15-21Z (kts)'] = np.nan
+
     nbm_df = nbm_df.drop(columns=['valid_date'])
 
     print("⏰ Filtering output matrix arrays to parse 21Z peak afternoon mixing windows...")
@@ -552,6 +566,7 @@ def process_station(station, lat, lon, target_run_hour, forecast_hours, date_str
                 'TdAI Status': row_data['TdAI Status'],
                 'NBM Temperature (F)': row_data['NBM Temperature (F)'],
                 'NBM Dewpoint (F)': row_data['NBM Dewpoint (F)'],
+                'NBM Max Wind Gust 15-21Z (kts)': row_data['NBM Max Wind Gust 15-21Z (kts)'],
                 'TdAI Predicted Bias (F)': row_data['TdAI Predicted Bias (F)'],
                 'TdAI Corrected Dewpoint (F)': row_data['TdAI Corrected Dewpoint (F)'],
                 'TdAI Top Drivers': row_data['TdAI Top Drivers'],
@@ -567,6 +582,7 @@ def process_station(station, lat, lon, target_run_hour, forecast_hours, date_str
                 'TdAI Status': row_data['TdAI Status'],
                 'NBM Temperature (F)': np.nan,
                 'NBM Dewpoint (F)': np.nan,
+                'NBM Max Wind Gust 15-21Z (kts)': np.nan,
                 'TdAI Predicted Bias (F)': 0.0,
                 'TdAI Corrected Dewpoint (F)': np.nan,
                 'TdAI Top Drivers': "",
