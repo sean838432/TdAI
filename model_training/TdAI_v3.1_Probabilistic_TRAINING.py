@@ -76,14 +76,22 @@ seed_everything(42)
 
 # True  -> Trains on ALL available data (2021-2026) for live deployment
 # False -> Leaves out HOLDOUT_YEAR strictly as an independent validation test bench.
-PRODUCTION_MODE = True
+PRODUCTION_MODE = False
 HOLDOUT_YEAR = 2025
 STATIONS = ['CAR', 'FVE', 'HUL', 'MLT', 'GNR', 'BGR']
 
 # Define paths
 base_path = "/home/sean834/TdAI/"
 training_dataset_path = os.path.join(base_path, "model_training/training_dataset/")
-models_output_path = os.path.join(base_path, "model_training/trained_models/")
+
+# Development/validation runs (PRODUCTION_MODE=False) hold out HOLDOUT_YEAR
+# and save into a separate folder so they can never overwrite the live
+# production models in trained_models/ - TdAI_v3.1_Probabilistic_EVALUATION.py
+# reads exclusively from trained_models_EVALUATION/ for the same reason: a
+# production model trained on ALL years (including HOLDOUT_YEAR) would
+# otherwise get "validated" against data it was already trained on.
+models_output_folder = "trained_models" if PRODUCTION_MODE else "trained_models_EVALUATION"
+models_output_path = os.path.join(base_path, f"model_training/{models_output_folder}/")
 
 # Define the 4 target operational cycles
 CYCLE_NAMES = ['03z_Day1', '03z_Day2', '15z_Day1', '15z_Day2']

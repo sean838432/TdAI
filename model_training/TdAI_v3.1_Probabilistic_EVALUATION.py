@@ -21,7 +21,15 @@ from sklearn.metrics import mean_absolute_error
 ################################## INPUTS ####################################
 base_path = "/home/sean834/TdAI/"
 training_dataset_path = os.path.join(base_path, "model_training/training_dataset/")
-models_output_path = os.path.join(base_path, "model_training/trained_models/")
+
+# This script scores models against HOLDOUT_YEAR as a strictly-unseen test
+# set, so it must ONLY ever load from trained_models_EVALUATION/ - the folder
+# TdAI_v3.1_Probabilistic_TRAINING.py writes to when PRODUCTION_MODE=False
+# (HOLDOUT_YEAR excluded from training). The live trained_models/ folder holds
+# PRODUCTION_MODE=True models trained on ALL years including HOLDOUT_YEAR, so
+# evaluating against those would silently score a model on data it already
+# saw during training.
+models_output_path = os.path.join(base_path, "model_training/trained_models_EVALUATION/")
 
 STATIONS = ['FVE', 'CAR', 'HUL', 'MLT', 'GNR', 'BGR']
 CYCLE_NAMES = ['03z_Day1', '03z_Day2', '15z_Day1', '15z_Day2']
@@ -702,7 +710,7 @@ if do_pit_and_crps_check:
                     edgecolor='white', zorder=2)
             ax.axhline(expected_count, color='crimson', linestyle='--', linewidth=1.6, zorder=3)
             ax.text(0.99, expected_count, ' Expected if calibrated', ha='right', va='bottom',
-                    fontsize=7.5, color='crimson', fontweight='bold', transform=ax.get_yaxis_transform())
+                    fontsize=12, color='crimson', fontweight='bold', transform=ax.get_yaxis_transform())
 
             ax.set_xlim(0, 1)
 
@@ -719,17 +727,17 @@ if do_pit_and_crps_check:
             ax.annotate('', xy=(0.02, 1.05), xytext=(0.47, 1.05), xycoords='axes fraction',
                         arrowprops=dict(arrowstyle='->', color='firebrick', lw=1.6), annotation_clip=False)
             ax.text(0.245, 1.06, 'Model OVER-predicted',
-                    ha='center', va='bottom', fontsize=10, color='firebrick', fontweight='bold',
+                    ha='center', va='bottom', fontsize=12, color='firebrick', fontweight='bold',
                     transform=ax.transAxes)
 
             ax.annotate('', xy=(0.98, 1.05), xytext=(0.53, 1.05), xycoords='axes fraction',
                         arrowprops=dict(arrowstyle='->', color='steelblue', lw=1.6), annotation_clip=False)
             ax.text(0.755, 1.06, 'Model UNDER-predicted',
-                    ha='center', va='bottom', fontsize=10, color='steelblue', fontweight='bold',
+                    ha='center', va='bottom', fontsize=12, color='steelblue', fontweight='bold',
                     transform=ax.transAxes)
 
-            ax.set_xlabel('PIT Value', fontsize=10)
-            ax.set_ylabel('Count', fontsize=10)
+            ax.set_xlabel('PIT Value', fontsize=15)
+            ax.set_ylabel('Count', fontsize=15)
             ax.grid(axis='y', linestyle='--', alpha=0.4)
 
         for ax in axes_flat[len(pit_station_results):]:

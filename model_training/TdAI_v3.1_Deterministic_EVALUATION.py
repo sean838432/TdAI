@@ -23,7 +23,15 @@ from sklearn.metrics import mean_absolute_error
 ################################## INPUTS ####################################
 base_path = "/home/sean834/TdAI/"
 training_dataset_path = os.path.join(base_path, "model_training/training_dataset/")
-models_output_path = os.path.join(base_path, "model_training/trained_models/")
+
+# This script scores models against HOLDOUT_YEAR as a strictly-unseen test
+# set, so it must ONLY ever load from trained_models_EVALUATION/ - the folder
+# TdAI_v3.1_Deterministic_TRAINING.py writes to when PRODUCTION_MODE=False
+# (HOLDOUT_YEAR excluded from training). The live trained_models/ folder holds
+# PRODUCTION_MODE=True models trained on ALL years including HOLDOUT_YEAR, so
+# evaluating against those would silently score a model on data it already
+# saw during training.
+models_output_path = os.path.join(base_path, "model_training/trained_models_EVALUATION/")
 
 STATIONS = ['FVE', 'CAR', 'HUL', 'MLT', 'GNR', 'BGR']
 CYCLE_NAMES = ['03z_Day1', '03z_Day2', '15z_Day1', '15z_Day2']
@@ -32,9 +40,9 @@ CYCLE_NAMES = ['03z_Day1', '03z_Day2', '15z_Day1', '15z_Day2']
 # were trained with this year excluded, so it's the only year safe to score here.
 HOLDOUT_YEAR = 2025
 
-do_top25 = True
+do_top25 = False
 do_scatter_plot = True
-do_feature_importance = True
+do_feature_importance = False
 
 N_TOP_FEATURES = 10
 ###############################################################################
@@ -45,7 +53,7 @@ def load_gated_moist_bust(station, c_name):
     HOLDOUT_YEAR, and returns (X_moist, y_moist, gb_model) after applying the
     operational gate + moist-bust-only filter. Returns None if unavailable."""
     dataset_full_path = os.path.join(training_dataset_path, f"TdAI_Training_Data_{station}_{c_name}.csv")
-    model_full_path = os.path.join(models_output_path, f"tdai_deterministic_model_{station}_{c_name}.joblib")
+    model_full_path = os.path.join(models_output_path, station, f"tdai_deterministic_model_{station}_{c_name}.joblib")
 
     if not (os.path.exists(dataset_full_path) and os.path.exists(model_full_path)):
         print(f"⚠️ Missing dataset or model for K{station} {c_name}. Skipping.")
@@ -90,7 +98,7 @@ def load_gated_moist_bust(station, c_name):
 ####################################################################
 
 if do_top25:
-    top25_output_path = os.path.join(base_path, f"model_training/{HOLDOUT_YEAR}_evaluation/top25_plots/")
+    top25_output_path = os.path.join(base_path, f"model_training/{HOLDOUT_YEAR}_evaluation_OFFICIAL/top25_plots/")
     os.makedirs(top25_output_path, exist_ok=True)
 
     print("\n" + "=" * 70)
@@ -190,7 +198,7 @@ if do_top25:
 ####################################################################
 
 if do_scatter_plot:
-    scatter_output_path = os.path.join(base_path, f"model_training/{HOLDOUT_YEAR}_evaluation/")
+    scatter_output_path = os.path.join(base_path, f"model_training/{HOLDOUT_YEAR}_evaluation_OFFICIAL/")
     os.makedirs(scatter_output_path, exist_ok=True)
 
     print("\n" + "=" * 70)
@@ -279,8 +287,8 @@ if do_scatter_plot:
             ax.set_xlim(lo, hi)
             ax.set_ylim(lo, hi)
 
-            ax.set_xlabel('Actual NBM Error (°F)', fontsize=10)
-            ax.set_ylabel('TdAI Predicted Error (°F)', fontsize=10)
+            ax.set_xlabel('Actual NBM Error (°F)', fontsize=12)
+            ax.set_ylabel('Model Predicted Error (°F)', fontsize=12)
 
             bin_strs = []
             for bin_lo, bin_hi, label in magnitude_bins:
@@ -288,10 +296,10 @@ if do_scatter_plot:
                 bin_strs.append(f"{label}: Skill={bin_skill_val:+.0f}%")
             breakdown_block = "   ".join(bin_strs)
 
-            ax.set_title(f'K{station} (n={len(actual)}, R²={r_squared:.2f}, Skill={skill_score:+.1f}%)\n{breakdown_block}',
-                         fontsize=9, fontweight='bold')
+            ax.set_title(f'K{station} (n={len(actual)}, R²={r_squared:.2f}, Skill={skill_score:+.1f}%)', #\n{breakdown_block}',
+                         fontsize=15, fontweight='bold')
             ax.grid(linestyle='--', alpha=0.4)
-            ax.legend(fontsize=8, loc='upper left')
+            ax.legend(fontsize=12, loc='upper left')
 
         for ax in axes_flat[len(station_pooled):]:
             ax.axis('off')
@@ -316,7 +324,7 @@ if do_scatter_plot:
 ####################################################################
 
 if do_feature_importance:
-    importance_output_path = os.path.join(base_path, f"model_training/{HOLDOUT_YEAR}_evaluation/")
+    importance_output_path = os.path.join(base_path, f"model_training/{HOLDOUT_YEAR}_evaluation_OFFICIAL/")
     os.makedirs(importance_output_path, exist_ok=True)
 
     print("\n" + "=" * 70)

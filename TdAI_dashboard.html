@@ -118,6 +118,41 @@
       });
     });
 
+    // The drivers dropdown is intentionally position:absolute (so opening it
+    // never grows the card's own box height / breaks the grid row's
+    // alignment) - but that means it doesn't extend the page's scrollable
+    // height either. For cards in the bottom row, the panel can run off the
+    // bottom of the viewport (or under the fixed footer bar) with no way to
+    // scroll down and reveal the rest. 'toggle' doesn't bubble, so this has
+    // to be a capture-phase listener rather than delegation.
+    document.addEventListener('toggle', (e) => {
+      const details = e.target;
+      if (!(details.id && details.id.endsWith('-drivers-panel'))) return;
+
+      const panel = details.querySelector(':scope > div');
+      if (!panel) return;
+
+      // Reset to the default "opens downward" position before measuring, so
+      // this is re-evaluated fresh every time the panel is opened.
+      panel.style.top = '';
+      panel.style.bottom = '';
+      panel.style.marginTop = '';
+      panel.style.marginBottom = '';
+
+      if (!details.open) return;
+
+      const footer = document.querySelector('footer');
+      const footerHeight = footer ? footer.offsetHeight : 0;
+      const summaryRect = details.getBoundingClientRect();
+      const spaceBelow = window.innerHeight - footerHeight - summaryRect.bottom;
+
+      if (spaceBelow < panel.offsetHeight + 8) {
+        panel.style.top = 'auto';
+        panel.style.bottom = '100%';
+        panel.style.marginBottom = '0.375rem';
+      }
+    }, true);
+
     function toggleChangelog() {
       const dropdown = document.getElementById('changelog-dropdown');
       const willShow = dropdown.classList.contains('hidden');
