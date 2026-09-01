@@ -16,5 +16,5 @@ valid_time,TdAI Run Time (UTC),TdAI Status,NBM Temperature (F),NBM Dewpoint (F),
 2026-08-29 21:00:00,2026-08-29 14:47 UTC,Active,68.0,43.0,0.3,42.7,43.0,0.0,-0.3,0.0,Time of Year: +0.43F | rh_875: +0.33F | NBM Cloud Cover (%): -0.27F | NBM Mixing Height (100s ft AGL): +0.24F | NBM RH (%): -0.22F,
 2026-08-30 21:00:00,2026-08-30 23:53 UTC,"RH > 60 %, Sky > 60 %",,,0.0,,56.0,,,,,
 2026-08-31 21:00:00,2026-08-31 14:47 UTC,Active,68.0,47.0,0.0,47.0,46.0,1.0,1.0,0.0,Time of Year: +0.49F | rh_875: +0.32F | rh_825: +0.21F | rh_950: -0.14F | rh_850: +0.13F,17.0
-2026-09-01 21:00:00,2026-09-01 02:47 UTC,Active,71.0,42.0,3.4,38.6,,,,,Time of Year: +0.58F | rh_900: -0.42F | NBM Cloud Cover (%): -0.36F | rh_850: -0.31F | rh_875: -0.29F,5.0
-2026-09-02 21:00:00,2026-09-01 02:47 UTC,Active,69.0,46.0,1.7,44.3,,,,,Time of Year: +0.83F | rh_900: -0.63F | NBM Wind Direction (deg): +0.36F | rh_925: -0.29F | rh_875: -0.25F,15.0
+2026-09-01 21:00:00,2026-09-01 14:47 UTC,Active,70.0,43.0,2.4,40.6,,,,,Time of Year: +0.80F | rh_900: -0.56F | rh_875: -0.42F | rh_825: -0.42F | NBM Cloud Cover (%): -0.34F,5.0
+2026-09-02 21:00:00,2026-09-01 14:47 UTC,Active,68.0,47.0,1.6,45.4,,,,,rh_900: -1.10F | Time of Year: +0.82F | NBM Wind Direction (deg): +0.58F | rh_725: -0.37F | rh_925: -0.27F,14.0
