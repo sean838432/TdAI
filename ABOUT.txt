@@ -2,6 +2,15 @@ TdAI is a machine learning model designed to bias correct the NBM's deterministi
 
 ---
 
+## TdAI Limitations for Forecasting
+
+1. **TdAI is a Point Model**: Because TdAI is a point model its predictions are only valid at the 6 ASOS stations where it was trained.
+
+2. **TdAI is Sensitive to NBM Versions**: TdAI was trained on multiple versions of the NBM. Any changes to the NBM can affect dew point forecast biases, limiting model performance. The caveat to this limitation is that any changes to the NBM's blending or statistical post-processing may not necessarily alter the fundamental model boundary layer issue TdAI is designed to address.
+
+3. **TdAI is only as good as the NBM & HRRR**: Because TdAI uses the NBM and HRRR as inputs any incorrect forecasts from either of them will degrade TdAI's performance.
+
+
 ## TdAI Model Architecture
 
 1. **Machine Learning Algorithm**: Gradient Boosted Decision Trees
