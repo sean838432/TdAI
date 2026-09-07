@@ -22,5 +22,5 @@ valid_time,TdAI Run Time (UTC),TdAI Status,NBM Temperature (F),NBM Dewpoint (F),
 2026-09-04 21:00:00,2026-09-04 14:47 UTC,"RH > 60 %, Sky > 60 %",,,0.0,,60.0,,,,,
 2026-09-05 21:00:00,2026-09-05 14:47 UTC,RH > 60 %,,,0.0,,50.0,,,,,
 2026-09-06 21:00:00,2026-09-06 14:47 UTC,Sky > 60 %,,,0.0,,39.0,,,,,
-2026-09-07 21:00:00,2026-09-07 02:48 UTC,Active,72.0,47.0,0.8,46.2,,,,,Time of Year: +0.77F | NBM Cloud Cover (%): -0.35F | NBM RH (%): -0.34F | rh_700: +0.16F | rh_825: -0.14F,21.0
-2026-09-08 21:00:00,2026-09-07 02:48 UTC,Active,60.0,36.0,1.0,35.0,,,,,Time of Year: +0.84F | NBM Wind Direction (deg): +0.42F | NBM Cloud Cover (%): -0.32F | rh_875: +0.32F | NBM RH (%): -0.30F,23.0
+2026-09-07 21:00:00,2026-09-07 14:47 UTC,Active,72.0,48.0,2.7,45.3,,,,,Time of Year: +0.80F | rh_875: -0.52F | rh_825: -0.40F | rh_850: -0.35F | NBM RH (%): -0.29F,21.0
+2026-09-08 21:00:00,2026-09-07 14:47 UTC,Active,60.0,36.0,2.1,33.9,,,,,Time of Year: +0.68F | NBM Cloud Cover (%): -0.61F | NBM RH (%): -0.59F | NBM Wind Direction (deg): +0.41F | rh_725: -0.34F,23.0
