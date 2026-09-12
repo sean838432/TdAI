@@ -440,7 +440,7 @@
                     <span id="${s}-v-asos-dew" class="font-bold text-white text-sm">--.-°F</span>
                   </div>
                   <div>
-                    <span class="text-slate-500 text-[10px] block">TdAI Median Skill:</span>
+                    <span class="text-slate-500 text-[10px] block">TdAI Deterministic Skill:</span>
                     <span id="${s}-v-skill-score" class="font-extrabold text-sm">--.-%</span>
                   </div>
                   <div>
@@ -896,15 +896,34 @@
 
         const skillScore = parseFloat(data.verification.skillScore);
         const skillNode = document.getElementById(`${s}-v-skill-score`);
-        skillNode.innerText = (skillScore >= 0 ? "+" : "") + data.verification.skillScore + "%";
 
-        if (skillScore > 0) {
-          skillNode.className = "font-black text-base text-emerald-400";
-        } else if (skillScore === 0) {
-          skillNode.className = "font-black text-base text-slate-400";
+        // Trap the divide-by-zero condition where original error is exactly 0.0
+        if (nbmErr === 0) {
+          skillNode.innerText = "N/A";
+          skillNode.className = "font-black text-base text-slate-400 italic";
         } else {
-          skillNode.className = "font-black text-base text-rose-400";
+          skillNode.innerText = (skillScore >= 0 ? "+" : "") + data.verification.skillScore + "%";
+
+          if (skillScore > 0) {
+            skillNode.className = "font-black text-base text-emerald-400";
+          //} else if (skillScore === 0) {
+          //  skillNode.className = "font-black text-base text-slate-400";
+          } else {
+            skillNode.className = "font-black text-base text-rose-400";
+          }
         }
+
+        //const skillScore = parseFloat(data.verification.skillScore);
+        //const skillNode = document.getElementById(`${s}-v-skill-score`);
+        //skillNode.innerText = (skillScore >= 0 ? "+" : "") + data.verification.skillScore + "%";
+
+        //if (skillScore > 0) {
+        //  skillNode.className = "font-black text-base text-emerald-400";
+        //} else if (skillScore === 0) {
+        //  skillNode.className = "font-black text-base text-slate-400";
+        //} else {
+        //  skillNode.className = "font-black text-base text-rose-400";
+        //}
       } else {
         vPanel.classList.add('hidden');
       }
