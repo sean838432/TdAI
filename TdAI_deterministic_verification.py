@@ -65,84 +65,111 @@ def verify_pending_rows(station, base_path):
     missing_mask = combined_log_df['ASOS Ground Truth Dewpoint (F)'].isna() & (combined_log_df_dt + datetime.timedelta(minutes=15) <= current_time_utc)
     missing_indices = combined_log_df[missing_mask].index
 
-    if len(missing_indices) == 0:
+    # Rows that are already ASOS-verified (and have a Raw NBM Error to use
+    # as the skill-score denominator) but are still missing NDFD Error/Skill
+    # Score - e.g. a row verified before NDFD Dewpoint existed, with NDFD
+    # data added to the ledger afterward. No network call needed for these;
+    # everything required is already sitting in the row.
+    ndfd_backfill_mask = (
+        combined_log_df['ASOS Ground Truth Dewpoint (F)'].notna()
+        & combined_log_df['NDFD Dewpoint (F)'].notna()
+        & combined_log_df['Raw NBM Error (F)'].notna()
+        & combined_log_df['NDFD Skill Score (%)'].isna()
+    )
+    ndfd_backfill_indices = combined_log_df[ndfd_backfill_mask].index
+
+    if len(missing_indices) == 0 and len(ndfd_backfill_indices) == 0:
         print(f"✅ K{station}: no rows currently awaiting verification.")
         return
 
-    print(f"\n🔄 Found {len(missing_indices)} historical rows awaiting real-time verification for K{station}...")
-    missing_vtimes = pd.to_datetime(combined_log_df.loc[missing_indices, 'valid_time'])
-    start_date = missing_vtimes.min() - datetime.timedelta(days=1)
-    end_date = missing_vtimes.max() + datetime.timedelta(days=1)
+    if len(missing_indices) > 0:
+        print(f"\n🔄 Found {len(missing_indices)} historical rows awaiting real-time verification for K{station}...")
+        missing_vtimes = pd.to_datetime(combined_log_df.loc[missing_indices, 'valid_time'])
+        start_date = missing_vtimes.min() - datetime.timedelta(days=1)
+        end_date = missing_vtimes.max() + datetime.timedelta(days=1)
 
-    print(f"📡 Pooling bulk ASOS data matrix from server registry: {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}...")
+        print(f"📡 Pooling bulk ASOS data matrix from server registry: {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}...")
 
-    asos_url = (
-        f"https://mesonet.agron.iastate.edu/cgi-bin/request/asos.py?"
-        f"station={station}&data=dwpf"
-        f"&year1={start_date.year}&month1={start_date.month}&day1={start_date.day}"
-        f"&year2={end_date.year}&month2={end_date.month}&day2={end_date.day}"
-        f"&tz=UTC&format=comma"
-    )
+        asos_url = (
+            f"https://mesonet.agron.iastate.edu/cgi-bin/request/asos.py?"
+            f"station={station}&data=dwpf"
+            f"&year1={start_date.year}&month1={start_date.month}&day1={start_date.day}"
+            f"&year2={end_date.year}&month2={end_date.month}&day2={end_date.day}"
+            f"&tz=UTC&format=comma"
+        )
 
-    bulk_asos_df = pd.DataFrame()
-    try:
-        res = requests.get(asos_url, timeout=25)
-        if res.status_code == 200:
-            bulk_asos_df = pd.read_csv(io.StringIO(res.text), comment='#')
-            if not bulk_asos_df.empty and 'dwpf' in bulk_asos_df.columns:
-                bulk_asos_df['valid_dt'] = pd.to_datetime(bulk_asos_df['valid'])
-                bulk_asos_df['rounded_dt'] = bulk_asos_df['valid_dt'].dt.round('h')
-                bulk_asos_df['rounded_valid_time_str'] = bulk_asos_df['rounded_dt'].dt.strftime('%Y-%m-%d %H:%M:%S')
-                print("   ✅ Bulk observation database compiled and cached locally in workflow memory.")
-    except Exception as e:
-        print(f"   ❌ Network latency during bulk dataset retrieval: {e}")
+        bulk_asos_df = pd.DataFrame()
+        try:
+            res = requests.get(asos_url, timeout=25)
+            if res.status_code == 200:
+                bulk_asos_df = pd.read_csv(io.StringIO(res.text), comment='#')
+                if not bulk_asos_df.empty and 'dwpf' in bulk_asos_df.columns:
+                    bulk_asos_df['valid_dt'] = pd.to_datetime(bulk_asos_df['valid'])
+                    bulk_asos_df['rounded_dt'] = bulk_asos_df['valid_dt'].dt.round('h')
+                    bulk_asos_df['rounded_valid_time_str'] = bulk_asos_df['rounded_dt'].dt.strftime('%Y-%m-%d %H:%M:%S')
+                    print("   ✅ Bulk observation database compiled and cached locally in workflow memory.")
+        except Exception as e:
+            print(f"   ❌ Network latency during bulk dataset retrieval: {e}")
 
-    if not bulk_asos_df.empty and 'rounded_valid_time_str' in bulk_asos_df.columns:
-        for idx in missing_indices:
-            v_time = pd.to_datetime(combined_log_df.loc[idx, 'valid_time'])
-            target_vtime_str = v_time.strftime('%Y-%m-%d %H:%M:%S')
-            v_status = str(combined_log_df.loc[idx, 'TdAI Status']).strip()
+        if not bulk_asos_df.empty and 'rounded_valid_time_str' in bulk_asos_df.columns:
+            for idx in missing_indices:
+                v_time = pd.to_datetime(combined_log_df.loc[idx, 'valid_time'])
+                target_vtime_str = v_time.strftime('%Y-%m-%d %H:%M:%S')
+                v_status = str(combined_log_df.loc[idx, 'TdAI Status']).strip()
 
-            print(f"   └── Processing validation row for: {v_time.strftime('%Y-%m-%d %H:%M UTC')} [Status: {v_status}]")
-            target_obs = bulk_asos_df[bulk_asos_df['rounded_valid_time_str'] == target_vtime_str].copy()
+                print(f"   └── Processing validation row for: {v_time.strftime('%Y-%m-%d %H:%M UTC')} [Status: {v_status}]")
+                target_obs = bulk_asos_df[bulk_asos_df['rounded_valid_time_str'] == target_vtime_str].copy()
 
-            if not target_obs.empty:
-                target_obs['dwpf_numeric'] = pd.to_numeric(target_obs['dwpf'], errors='coerce')
-                valid_reports = target_obs.dropna(subset=['dwpf_numeric'])
+                if not target_obs.empty:
+                    target_obs['dwpf_numeric'] = pd.to_numeric(target_obs['dwpf'], errors='coerce')
+                    valid_reports = target_obs.dropna(subset=['dwpf_numeric'])
 
-                if not valid_reports.empty:
-                    # Routine + SPECI reports can both round to the same
-                    # clock hour - keep the one closest to the top of the
-                    # hour, matching the dedup fix already applied to the
-                    # offline data_download/ASOS_download.py pipeline.
-                    valid_reports = valid_reports.copy()
-                    valid_reports['_minutes_from_hour'] = (valid_reports['valid_dt'] - valid_reports['rounded_dt']).abs()
-                    closest_report = valid_reports.sort_values('_minutes_from_hour').iloc[0]
-                    asos_gt = float(closest_report['dwpf_numeric'])
-                    combined_log_df.loc[idx, 'ASOS Ground Truth Dewpoint (F)'] = asos_gt
+                    if not valid_reports.empty:
+                        # Routine + SPECI reports can both round to the same
+                        # clock hour - keep the one closest to the top of the
+                        # hour, matching the dedup fix already applied to the
+                        # offline data_download/ASOS_download.py pipeline.
+                        valid_reports = valid_reports.copy()
+                        valid_reports['_minutes_from_hour'] = (valid_reports['valid_dt'] - valid_reports['rounded_dt']).abs()
+                        closest_report = valid_reports.sort_values('_minutes_from_hour').iloc[0]
+                        asos_gt = float(closest_report['dwpf_numeric'])
+                        combined_log_df.loc[idx, 'ASOS Ground Truth Dewpoint (F)'] = asos_gt
 
-                    if v_status == "Active":
-                        nbm_dpt = float(combined_log_df.loc[idx, 'NBM Dewpoint (F)'])
-                        tdai_dpt = float(combined_log_df.loc[idx, 'TdAI Corrected Dewpoint (F)'])
+                        if v_status == "Active":
+                            nbm_dpt = float(combined_log_df.loc[idx, 'NBM Dewpoint (F)'])
+                            tdai_dpt = float(combined_log_df.loc[idx, 'TdAI Corrected Dewpoint (F)'])
 
-                        r_nbm_err = nbm_dpt - asos_gt
-                        p_tdai_err = tdai_dpt - asos_gt
-                        skill_score = (1.0 - (abs(p_tdai_err) / abs(r_nbm_err))) * 100 if abs(r_nbm_err) > 0 else 0.0
+                            r_nbm_err = nbm_dpt - asos_gt
+                            p_tdai_err = tdai_dpt - asos_gt
+                            skill_score = (1.0 - (abs(p_tdai_err) / abs(r_nbm_err))) * 100 if abs(r_nbm_err) > 0 else 0.0
 
-                        combined_log_df.loc[idx, 'Raw NBM Error (F)'] = round(r_nbm_err, 2)
-                        combined_log_df.loc[idx, 'Post TdAI Error (F)'] = round(p_tdai_err, 2)
-                        combined_log_df.loc[idx, 'TdAI Skill Score (%)'] = round(skill_score, 1)
+                            combined_log_df.loc[idx, 'Raw NBM Error (F)'] = round(r_nbm_err, 2)
+                            combined_log_df.loc[idx, 'Post TdAI Error (F)'] = round(p_tdai_err, 2)
+                            combined_log_df.loc[idx, 'TdAI Skill Score (%)'] = round(skill_score, 1)
 
-                        ndfd_dpt_raw = combined_log_df.loc[idx, 'NDFD Dewpoint (F)']
-                        if pd.notna(ndfd_dpt_raw):
-                            ndfd_err = float(ndfd_dpt_raw) - asos_gt
-                            ndfd_skill_score = (1.0 - (abs(ndfd_err) / abs(r_nbm_err))) * 100 if abs(r_nbm_err) > 0 else 0.0
-                            combined_log_df.loc[idx, 'NDFD Error (F)'] = round(ndfd_err, 2)
-                            combined_log_df.loc[idx, 'NDFD Skill Score (%)'] = round(ndfd_skill_score, 1)
+                            ndfd_dpt_raw = combined_log_df.loc[idx, 'NDFD Dewpoint (F)']
+                            if pd.notna(ndfd_dpt_raw):
+                                ndfd_err = float(ndfd_dpt_raw) - asos_gt
+                                ndfd_skill_score = (1.0 - (abs(ndfd_err) / abs(r_nbm_err))) * 100 if abs(r_nbm_err) > 0 else 0.0
+                                combined_log_df.loc[idx, 'NDFD Error (F)'] = round(ndfd_err, 2)
+                                combined_log_df.loc[idx, 'NDFD Skill Score (%)'] = round(ndfd_skill_score, 1)
 
-                        print(f"        ✅ Active Row Validated! ASOS: {asos_gt}F | TdAI Skill: {round(skill_score, 1)}%")
-                    else:
-                        print(f"        ... Bypassed Row Validated! Observed ASOS Td: {asos_gt}F (Calculations omitted).")
+                            print(f"        ✅ Active Row Validated! ASOS: {asos_gt}F | TdAI Skill: {round(skill_score, 1)}%")
+                        else:
+                            print(f"        ... Bypassed Row Validated! Observed ASOS Td: {asos_gt}F (Calculations omitted).")
+
+    if len(ndfd_backfill_indices) > 0:
+        print(f"\n🔁 Backfilling NDFD Error/Skill Score for {len(ndfd_backfill_indices)} already-verified row(s) at K{station}...")
+        for idx in ndfd_backfill_indices:
+            asos_gt = float(combined_log_df.loc[idx, 'ASOS Ground Truth Dewpoint (F)'])
+            r_nbm_err = float(combined_log_df.loc[idx, 'Raw NBM Error (F)'])
+            ndfd_dpt = float(combined_log_df.loc[idx, 'NDFD Dewpoint (F)'])
+
+            ndfd_err = ndfd_dpt - asos_gt
+            ndfd_skill_score = (1.0 - (abs(ndfd_err) / abs(r_nbm_err))) * 100 if abs(r_nbm_err) > 0 else 0.0
+            combined_log_df.loc[idx, 'NDFD Error (F)'] = round(ndfd_err, 2)
+            combined_log_df.loc[idx, 'NDFD Skill Score (%)'] = round(ndfd_skill_score, 1)
+            print(f"   └── K{station} {combined_log_df.loc[idx, 'valid_time']}: NDFD Error={round(ndfd_err, 2)}F, NDFD Skill={round(ndfd_skill_score, 1)}%")
 
     combined_log_df.to_csv(output_csv_path, index=False)
     print(f"💾 Verification sync complete for K{station} → {output_csv_path}")
@@ -161,7 +188,7 @@ def main():
             print(f"❌ K{station} verification pass failed: {e}")
             continue
 
-    print("\n✨ VERIFICATION-ONLY PASS COMPLETE!")
+    print("\n✨ VERIFICATION COMPLETE!")
 
 if __name__ == "__main__":
     main()
