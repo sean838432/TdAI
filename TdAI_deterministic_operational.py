@@ -1,9 +1,13 @@
 """
-TdAI Operational Ingestion, Prediction, and Verification Pipeline
+TdAI Operational Ingestion and Prediction Pipeline
+
+ASOS verification (Ground Truth backfill, error/skill scoring) is handled
+entirely by the separate TdAI_deterministic_verification.py, run on its own
+independent schedule - this script only ever generates forecasts.
 """
 
 import os
-import io
+import re
 import glob
 import datetime
 import requests
@@ -35,11 +39,25 @@ STATIONS = {
     'BGR': (44.807400, -68.828100),
 }
 
+# Static api.weather.gov gridpoint identifiers (NDFD's practical JSON front
+# end) for each station - resolved once via api.weather.gov/points/{lat},{lon}
+# and hardcoded here like lat/lon above, since a fixed point's grid
+# assignment doesn't change and this avoids an extra network call every run.
+NDFD_GRIDPOINTS = {
+    'CAR': ('CAR', 71, 175),
+    'FVE': ('CAR', 58, 192),
+    'HUL': ('CAR', 86, 141),
+    'MLT': ('CAR', 61, 114),
+    'GNR': ('CAR', 35, 100),
+    'BGR': ('CAR', 64, 74),
+}
+
 OUTPUT_HEADERS = [
     'valid_time', 'TdAI Run Time (UTC)', 'TdAI Status', 'NBM Temperature (F)',
-    'NBM Dewpoint (F)', 'NBM Max Wind Gust 15-21Z (kts)', 'TdAI Predicted Bias (F)',
-    'TdAI Corrected Dewpoint (F)', 'TdAI Top Drivers',
-    'ASOS Ground Truth Dewpoint (F)', 'Raw NBM Error (F)', 'Post TdAI Error (F)', 'TdAI Skill Score (%)'
+    'NBM Dewpoint (F)', 'NBM Max Wind Gust 15-21Z (kts)', 'NDFD Dewpoint (F)',
+    'TdAI Predicted Bias (F)', 'TdAI Corrected Dewpoint (F)', 'TdAI Top Drivers',
+    'ASOS Ground Truth Dewpoint (F)', 'Raw NBM Error (F)', 'Post TdAI Error (F)', 'TdAI Skill Score (%)',
+    'NDFD Error (F)', 'NDFD Skill Score (%)'
 ]
 
 # TdAI's models are only trained on March 1 - November 15 data (fire
@@ -106,6 +124,7 @@ def write_winter_pause_status(station, base_path):
             'NBM Temperature (F)': np.nan,
             'NBM Dewpoint (F)': np.nan,
             'NBM Max Wind Gust 15-21Z (kts)': np.nan,
+            'NDFD Dewpoint (F)': np.nan,
             'TdAI Predicted Bias (F)': 0.0,
             'TdAI Corrected Dewpoint (F)': np.nan,
             'TdAI Top Drivers': "",
@@ -113,6 +132,8 @@ def write_winter_pause_status(station, base_path):
             'Raw NBM Error (F)': np.nan,
             'Post TdAI Error (F)': np.nan,
             'TdAI Skill Score (%)': np.nan,
+            'NDFD Error (F)': np.nan,
+            'NDFD Skill Score (%)': np.nan,
         })
 
     new_entry_df = pd.DataFrame(new_rows)
@@ -201,6 +222,42 @@ def get_nbm_bulletin(date_str, run_hour='13'):
     except Exception as e:
         print(f"   ❌ NBM terminal network fault: {e}")
         return None
+
+def fetch_ndfd_dewpoint_values(station):
+    """Fetches NDFD's current dewpoint forecast time series for one station
+    via api.weather.gov's gridpoint endpoint (the practical JSON front end to
+    raw NDFD - same underlying source, no GRIB/XML parsing needed). Returns
+    the raw list of {'validTime': ..., 'value': ...} entries (Celsius), or
+    None on any failure. This is a reference comparison only (TdAI vs. the
+    official human-adjusted NWS forecast) - never used as a model feature,
+    and never allowed to block the rest of the pipeline if it's unavailable."""
+    grid_id, grid_x, grid_y = NDFD_GRIDPOINTS[station]
+    url = f"https://api.weather.gov/gridpoints/{grid_id}/{grid_x},{grid_y}"
+    try:
+        response = requests.get(url, timeout=15, headers={'User-Agent': 'TdAI-Operational-Pipeline (NWS Caribou)'})
+        if response.status_code != 200:
+            print(f"   ⚠️ NDFD gridpoint request failed for K{station} (status {response.status_code}).")
+            return None
+        return response.json()['properties']['dewpoint']['values']
+    except Exception as e:
+        print(f"   ⚠️ NDFD gridpoint fetch failed for K{station}: {e}")
+        return None
+
+def lookup_ndfd_dewpoint_f(ndfd_values, target_dt_utc):
+    """Finds the NDFD dewpoint value (converted to degF) whose validTime
+    interval ('start/PTnH' ISO8601) contains target_dt_utc. Returns None if
+    unavailable or no covering interval is found."""
+    if not ndfd_values:
+        return None
+    for entry in ndfd_values:
+        start_str, dur_str = entry['validTime'].split('/')
+        start_dt = datetime.datetime.fromisoformat(start_str).astimezone(datetime.timezone.utc).replace(tzinfo=None)
+        hours_match = re.match(r'PT(\d+)H', dur_str)
+        duration_hours = int(hours_match.group(1)) if hours_match else 1
+        end_dt = start_dt + datetime.timedelta(hours=duration_hours)
+        if start_dt <= target_dt_utc < end_dt:
+            return (entry['value'] * 9.0 / 5.0) + 32.0
+    return None
 
 def extract_hrrr_point_profile(ds_filtered, lat, lon, valid_time_str, fhr):
     """Extracts the nearest-gridpoint vertical profile (500-1000 hPa) for one
@@ -410,6 +467,22 @@ def process_station(station, lat, lon, target_run_hour, forecast_hours, date_str
     master_input_df['cos_season'] = np.cos(2 * np.pi * doy / 365.25)
 
     # -------------------------------------------------------------------------
+    # 🌐 SECTION 3b: NDFD REFERENCE DEWPOINT (OUTPUT/COMPARISON ONLY)
+    #    Pulled at THIS cron's run time - same lead time NBM/TdAI are working
+    #    with this cycle, for an apples-to-apples "did TdAI beat the official
+    #    human-adjusted forecast" comparison. Each new cron run overwrites the
+    #    prior value for a given valid_time (Section 5), so by the time a day
+    #    reaches verification, its stored NDFD value is whichever run last
+    #    touched that valid_time - naturally the 1445Z/Day1 (shortest lead
+    #    time) run. Never used as a model feature/predictor.
+    # -------------------------------------------------------------------------
+    print(f"🌐 Fetching NDFD reference dewpoint forecast for K{station}...")
+    ndfd_values = fetch_ndfd_dewpoint_values(station)
+    master_input_df['NDFD Dewpoint (F)'] = master_input_df['valid_time'].apply(
+        lambda vt: lookup_ndfd_dewpoint_f(ndfd_values, pd.Timestamp(vt).to_pydatetime())
+    )
+
+    # -------------------------------------------------------------------------
     # 🔮 SECTION 4: MACHINE LEARNING GBDT PREDICTION BIAS ENGINE (THRESHOLD GATED)
     # -------------------------------------------------------------------------
     model_dir = os.path.join(base_path, "model_training", "trained_models", station)
@@ -537,9 +610,14 @@ def process_station(station, lat, lon, target_run_hour, forecast_hours, date_str
             master_input_df.loc[fhr_mask, 'TdAI Top Drivers'] = "Explanation unavailable"
 
     # -------------------------------------------------------------------------
-    # 📊 SECTION 5: RETROSPECTIVE CONTINUOUS VERIFICATION ENGINE
+    # 📊 SECTION 5: FORECAST LEDGER MERGE & SYNC
+    #    ASOS verification (Ground Truth backfill, Raw NBM/TdAI/NDFD Error,
+    #    skill scores) is handled entirely by the separate, independently
+    #    scheduled TdAI_deterministic_verification.py - never here, since a
+    #    forecast-generation run can never see a row whose valid_time has
+    #    already passed (Day1/Day2 targets are always still in the future).
     # -------------------------------------------------------------------------
-    print(f"\n📡 Initializing Automated Forecast Validation & Local CSV Ledger Sync for K{station}...")
+    print(f"\n📡 Initializing Local CSV Ledger Sync for K{station}...")
 
     headers = OUTPUT_HEADERS
 
@@ -567,13 +645,16 @@ def process_station(station, lat, lon, target_run_hour, forecast_hours, date_str
                 'NBM Temperature (F)': row_data['NBM Temperature (F)'],
                 'NBM Dewpoint (F)': row_data['NBM Dewpoint (F)'],
                 'NBM Max Wind Gust 15-21Z (kts)': row_data['NBM Max Wind Gust 15-21Z (kts)'],
+                'NDFD Dewpoint (F)': row_data['NDFD Dewpoint (F)'],
                 'TdAI Predicted Bias (F)': row_data['TdAI Predicted Bias (F)'],
                 'TdAI Corrected Dewpoint (F)': row_data['TdAI Corrected Dewpoint (F)'],
                 'TdAI Top Drivers': row_data['TdAI Top Drivers'],
                 'ASOS Ground Truth Dewpoint (F)': np.nan,
                 'Raw NBM Error (F)': np.nan,
                 'Post TdAI Error (F)': np.nan,
-                'TdAI Skill Score (%)': np.nan
+                'TdAI Skill Score (%)': np.nan,
+                'NDFD Error (F)': np.nan,
+                'NDFD Skill Score (%)': np.nan
             }
         else:
             log_row = {
@@ -583,13 +664,16 @@ def process_station(station, lat, lon, target_run_hour, forecast_hours, date_str
                 'NBM Temperature (F)': np.nan,
                 'NBM Dewpoint (F)': np.nan,
                 'NBM Max Wind Gust 15-21Z (kts)': np.nan,
+                'NDFD Dewpoint (F)': np.nan,
                 'TdAI Predicted Bias (F)': 0.0,
                 'TdAI Corrected Dewpoint (F)': np.nan,
                 'TdAI Top Drivers': "",
                 'ASOS Ground Truth Dewpoint (F)': np.nan,
                 'Raw NBM Error (F)': np.nan,
                 'Post TdAI Error (F)': np.nan,
-                'TdAI Skill Score (%)': np.nan
+                'TdAI Skill Score (%)': np.nan,
+                'NDFD Error (F)': np.nan,
+                'NDFD Skill Score (%)': np.nan
             }
 
         new_rows_list.append(log_row)
@@ -606,18 +690,14 @@ def process_station(station, lat, lon, target_run_hour, forecast_hours, date_str
         for target_vtime in new_entry_df['valid_time']:
             existing_match = combined_log_df[combined_log_df['valid_time'] == target_vtime]
             if not existing_match.empty:
-                old_asos = existing_match['ASOS Ground Truth Dewpoint (F)'].iloc[0]
-                if pd.notna(old_asos):
-                    print(f"♻️ Preserving historical ASOS verification data found for {target_vtime}")
-                    new_entry_df.loc[new_entry_df['valid_time'] == target_vtime, 'ASOS Ground Truth Dewpoint (F)'] = old_asos
-
-                    r_nbm_err = new_entry_df.loc[new_entry_df['valid_time'] == target_vtime, 'NBM Dewpoint (F)'].values[0] - old_asos
-                    p_tdai_err = new_entry_df.loc[new_entry_df['valid_time'] == target_vtime, 'TdAI Corrected Dewpoint (F)'].values[0] - old_asos
-                    skill_score = (1.0 - (abs(p_tdai_err) / abs(r_nbm_err))) * 100 if abs(r_nbm_err) > 0 else 0.0
-
-                    new_entry_df.loc[new_entry_df['valid_time'] == target_vtime, 'Raw NBM Error (F)'] = round(r_nbm_err, 2)
-                    new_entry_df.loc[new_entry_df['valid_time'] == target_vtime, 'Post TdAI Error (F)'] = round(p_tdai_err, 2)
-                    new_entry_df.loc[new_entry_df['valid_time'] == target_vtime, 'TdAI Skill Score (%)'] = round(skill_score, 1)
+                # A flaky NWS API call shouldn't wipe out an otherwise-good
+                # NDFD value - if this run's fetch failed (NaN) but an older
+                # run already captured one for this valid_time, keep it.
+                if 'NDFD Dewpoint (F)' in existing_match.columns:
+                    old_ndfd = existing_match['NDFD Dewpoint (F)'].iloc[0]
+                    new_ndfd = new_entry_df.loc[new_entry_df['valid_time'] == target_vtime, 'NDFD Dewpoint (F)'].values[0]
+                    if pd.isna(new_ndfd) and pd.notna(old_ndfd):
+                        new_entry_df.loc[new_entry_df['valid_time'] == target_vtime, 'NDFD Dewpoint (F)'] = old_ndfd
 
         target_valid_times = new_entry_df['valid_time'].tolist()
         combined_log_df = combined_log_df[~combined_log_df['valid_time'].isin(target_valid_times)]
@@ -628,78 +708,6 @@ def process_station(station, lat, lon, target_run_hour, forecast_hours, date_str
     combined_log_df = combined_log_df.sort_values(by=['valid_time', 'ASOS Ground Truth Dewpoint (F)'], na_position='first')
     combined_log_df = combined_log_df.drop_duplicates(subset=['valid_time'], keep='last')
     combined_log_df = combined_log_df.sort_values(by='valid_time').reset_index(drop=True)
-    combined_log_df_dt = pd.to_datetime(combined_log_df['valid_time'])
-
-    missing_mask = combined_log_df['ASOS Ground Truth Dewpoint (F)'].isna() & (combined_log_df_dt + datetime.timedelta(minutes=15) <= current_time_utc)
-    missing_indices = combined_log_df[missing_mask].index
-
-    if len(missing_indices) > 0:
-        print(f"\n🔄 Found {len(missing_indices)} historical rows awaiting real-time verification for K{station}...")
-        missing_vtimes = pd.to_datetime(combined_log_df.loc[missing_indices, 'valid_time'])
-        start_date = missing_vtimes.min() - datetime.timedelta(days=1)
-        end_date = missing_vtimes.max() + datetime.timedelta(days=1)
-
-        print(f"📡 Pooling bulk ASOS data matrix from server registry: {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}...")
-
-        asos_url = (
-            f"https://mesonet.agron.iastate.edu/cgi-bin/request/asos.py?"
-            f"station={station}&data=dwpf"
-            f"&year1={start_date.year}&month1={start_date.month}&day1={start_date.day}"
-            f"&year2={end_date.year}&month2={end_date.month}&day2={end_date.day}"
-            f"&tz=UTC&format=comma"
-        )
-
-        bulk_asos_df = pd.DataFrame()
-        try:
-            res = requests.get(asos_url, timeout=25)
-            if res.status_code == 200:
-                bulk_asos_df = pd.read_csv(io.StringIO(res.text), comment='#')
-                if not bulk_asos_df.empty and 'dwpf' in bulk_asos_df.columns:
-                    bulk_asos_df['valid_dt'] = pd.to_datetime(bulk_asos_df['valid'])
-                    bulk_asos_df['rounded_dt'] = bulk_asos_df['valid_dt'].dt.round('h')
-                    bulk_asos_df['rounded_valid_time_str'] = bulk_asos_df['rounded_dt'].dt.strftime('%Y-%m-%d %H:%M:%S')
-                    print("   ✅ Bulk observation database compiled and cached locally in workflow memory.")
-        except Exception as e:
-            print(f"   ❌ Network latency during bulk dataset retrieval: {e}")
-
-        if not bulk_asos_df.empty and 'rounded_valid_time_str' in bulk_asos_df.columns:
-            for idx in missing_indices:
-                v_time = pd.to_datetime(combined_log_df.loc[idx, 'valid_time'])
-                target_vtime_str = v_time.strftime('%Y-%m-%d %H:%M:%S')
-                v_status = str(combined_log_df.loc[idx, 'TdAI Status']).strip()
-
-                print(f"   └── Processing validation row for: {v_time.strftime('%Y-%m-%d %H:%M UTC')} [Status: {v_status}]")
-                target_obs = bulk_asos_df[bulk_asos_df['rounded_valid_time_str'] == target_vtime_str].copy()
-
-                if not target_obs.empty:
-                    target_obs['dwpf_numeric'] = pd.to_numeric(target_obs['dwpf'], errors='coerce')
-                    valid_reports = target_obs.dropna(subset=['dwpf_numeric'])
-
-                    if not valid_reports.empty:
-                        # Routine + SPECI reports can both round to the same
-                        # clock hour - keep the one closest to the top of the
-                        # hour, matching the dedup fix already applied to the
-                        # offline data_download/ASOS_download.py pipeline.
-                        valid_reports = valid_reports.copy()
-                        valid_reports['_minutes_from_hour'] = (valid_reports['valid_dt'] - valid_reports['rounded_dt']).abs()
-                        closest_report = valid_reports.sort_values('_minutes_from_hour').iloc[0]
-                        asos_gt = float(closest_report['dwpf_numeric'])
-                        combined_log_df.loc[idx, 'ASOS Ground Truth Dewpoint (F)'] = asos_gt
-
-                        if v_status == "Active":
-                            nbm_dpt = float(combined_log_df.loc[idx, 'NBM Dewpoint (F)'])
-                            tdai_dpt = float(combined_log_df.loc[idx, 'TdAI Corrected Dewpoint (F)'])
-
-                            r_nbm_err = nbm_dpt - asos_gt
-                            p_tdai_err = tdai_dpt - asos_gt
-                            skill_score = (1.0 - (abs(p_tdai_err) / abs(r_nbm_err))) * 100 if abs(r_nbm_err) > 0 else 0.0
-
-                            combined_log_df.loc[idx, 'Raw NBM Error (F)'] = round(r_nbm_err, 2)
-                            combined_log_df.loc[idx, 'Post TdAI Error (F)'] = round(p_tdai_err, 2)
-                            combined_log_df.loc[idx, 'TdAI Skill Score (%)'] = round(skill_score, 1)
-                            print(f"        ✅ Active Row Validated! ASOS: {asos_gt}F | TdAI Skill: {round(skill_score, 1)}%")
-                        else:
-                            print(f"        ... Bypassed Row Validated! Observed ASOS Td: {asos_gt}F (Calculations omitted).")
 
     combined_log_df.to_csv(output_csv_path, index=False)
     print(f"💾 Storage synchronization complete for K{station} → {output_csv_path}")

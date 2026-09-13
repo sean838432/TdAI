@@ -1,0 +1,38 @@
+name: TdAI Deterministic Verification
+
+on:
+  workflow_dispatch:
+
+jobs:
+  run-verification:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout Repository Code
+        uses: actions/checkout@v4
+
+      - name: Set Up Python Environment
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Python Science Libraries
+        # No GRIB/eccodes install needed here - verification never touches
+        # HRRR, it only reads existing CSVs and pulls ASOS observations.
+        run: |
+          pip install -r requirements.txt
+
+      - name: Execute TdAI Deterministic Verification-Only Pass
+        run: python TdAI_deterministic_verification.py
+
+      - name: Commit and Push Updated Ledgers
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+
+          git add deterministic_output/ 2>/dev/null || echo "Deterministic output folder not found"
+
+          git commit -m "Sync deterministic verification results [Skip CI]" || echo "No changes to commit"
+
+          git push origin HEAD:${{ github.ref_name }}

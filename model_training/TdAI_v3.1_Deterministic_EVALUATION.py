@@ -41,10 +41,15 @@ CYCLE_NAMES = ['03z_Day1', '03z_Day2', '15z_Day1', '15z_Day2']
 HOLDOUT_YEAR = 2025
 
 do_top25 = False
-do_scatter_plot = True
+do_scatter_plot = False
 do_feature_importance = False
+do_bust_threshold_count = True
 
 N_TOP_FEATURES = 10
+
+# NBM error (°F) cutoff for the big-bust sample count section below - change
+# this single value to re-run the count at a different threshold.
+BUST_EXCEEDANCE_THRESHOLD_F = 5.0
 ###############################################################################
 
 
@@ -287,8 +292,9 @@ if do_scatter_plot:
             ax.set_xlim(lo, hi)
             ax.set_ylim(lo, hi)
 
-            ax.set_xlabel('Actual NBM Error (°F)', fontsize=12)
-            ax.set_ylabel('Model Predicted Error (°F)', fontsize=12)
+            ax.set_xlabel('Actual NBM Error (°F)', fontsize=15)
+            ax.set_ylabel('Model Predicted Error (°F)', fontsize=15)
+            ax.tick_params(axis='both', labelsize=13)
 
             bin_strs = []
             for bin_lo, bin_hi, label in magnitude_bins:
@@ -403,3 +409,49 @@ if do_feature_importance:
             print(f"🖼️  Saved -> {importance_plot_path}")
 
     print("\n FEATURE IMPORTANCE EVALUATION COMPLETE!")
+
+
+####################################################################
+#                                                                  #
+#                     TdAI PERFORMANCE EVALUATION                  #
+#              (Big-Bust Sample Count, Entire Dataset)             #
+#                                                                  #
+####################################################################
+
+if do_bust_threshold_count:
+    print("\n" + "=" * 70)
+    print(f" NBM ERROR >= {BUST_EXCEEDANCE_THRESHOLD_F}F SAMPLE COUNT (Training Years Only, Excludes {HOLDOUT_YEAR}, Per Station)")
+    print("=" * 70)
+
+    header = f"{'Station':8s}" + "".join(f"{c:>12s}" for c in CYCLE_NAMES) + f"{'Total':>10s}"
+    print(header)
+
+    grand_total = 0
+    for station in STATIONS:
+        counts = []
+        for c_name in CYCLE_NAMES:
+            dataset_full_path = os.path.join(training_dataset_path, f"TdAI_Training_Data_{station}_{c_name}.csv")
+            if not os.path.exists(dataset_full_path):
+                print(f"⚠️ Missing dataset for K{station} {c_name}. Counting as 0.")
+                counts.append(0)
+                continue
+
+            df = pd.read_csv(dataset_full_path)
+            if 'valid_time' in df.columns:
+                df = df.set_index('valid_time')
+            df.index = pd.to_datetime(df.index)
+
+            # Excludes HOLDOUT_YEAR - this reports the actual training
+            # population (what PRODUCTION_MODE=False trains on), not the
+            # held-out test set.
+            df = df[df.index.year != HOLDOUT_YEAR]
+
+            counts.append(int((df['Target Error (F)'] >= BUST_EXCEEDANCE_THRESHOLD_F).sum()))
+
+        station_total = sum(counts)
+        grand_total += station_total
+        row = f"{station:8s}" + "".join(f"{c:12d}" for c in counts) + f"{station_total:10d}"
+        print(row)
+
+    print(f"\nAll stations combined: {grand_total}")
+    print("\n✨ BUST EXCEEDANCE COUNT COMPLETE!")

@@ -434,22 +434,30 @@
 
               <div id="${s}-verification-panel" class="hidden bg-indigo-950/20 border border-indigo-500/20 rounded-xl p-3 space-y-2">
                 <span class="block text-[10px] text-indigo-400 font-black tracking-widest border-b border-indigo-900/40 pb-0.5">TdAI DETERMINISTIC VERIFICATION</span>
-                <div class="grid grid-cols-2 gap-2 text-xs">
+                <div class="grid grid-cols-3 gap-2 text-xs">
                   <div>
                     <span class="text-slate-500 text-[10px] block">ASOS Ground Truth:</span>
                     <span id="${s}-v-asos-dew" class="font-bold text-white text-sm">--.-°F</span>
-                  </div>
-                  <div>
-                    <span class="text-slate-500 text-[10px] block">TdAI Deterministic Skill:</span>
-                    <span id="${s}-v-skill-score" class="font-extrabold text-sm">--.-%</span>
                   </div>
                   <div>
                     <span class="text-slate-500 text-[10px] block">Original NBM Error:</span>
                     <span id="${s}-v-nbm-err" class="font-medium text-slate-300">--.-°F</span>
                   </div>
                   <div>
+                    <span class="text-slate-500 text-[10px] block">TdAI Skill Score:</span>
+                    <span id="${s}-v-skill-score" class="font-extrabold text-sm">--.-%</span>
+                  </div>
+                  <div>
+                    <span class="text-slate-500 text-[10px] block">NDFD Forecast:</span>
+                    <span id="${s}-v-ndfd-dew" class="font-bold text-white text-sm">--.-°F</span>
+                  </div>
+                  <div>
                     <span class="text-slate-500 text-[10px] block">Post TdAI Error:</span>
                     <span id="${s}-v-tdai-err" class="font-medium text-slate-300">--.-°F</span>
+                  </div>
+                  <div>
+                    <span class="text-slate-500 text-[10px] block">NDFD Skill Score:</span>
+                    <span id="${s}-v-ndfd-skill-score" class="font-extrabold text-sm">--.-%</span>
                   </div>
                 </div>
               </div>
@@ -521,12 +529,14 @@
       const idxNbmDew    = detHeaders.indexOf('NBM Dewpoint (F)');
       const idxNbmRh     = detHeaders.indexOf('NBM RH (%)');
       const idxNbmGust   = detHeaders.indexOf('NBM Max Wind Gust 15-21Z (kts)');
+      const idxNdfdDew   = detHeaders.indexOf('NDFD Dewpoint (F)');
       const idxTdaiDew   = detHeaders.indexOf('TdAI Corrected Dewpoint (F)');
       const idxRunTime   = detHeaders.indexOf('TdAI Run Time (UTC)');
       const idxAsosDew   = detHeaders.indexOf('ASOS Ground Truth Dewpoint (F)');
       const idxNbmErr    = detHeaders.indexOf('Raw NBM Error (F)');
       const idxTdaiErr   = detHeaders.indexOf('Post TdAI Error (F)');
       const idxSkill     = detHeaders.indexOf('TdAI Skill Score (%)');
+      const idxNdfdSkill = detHeaders.indexOf('NDFD Skill Score (%)');
       const idxTopDrivers = detHeaders.indexOf('TdAI Top Drivers');
 
       const idxPValidTime = probHeaders.indexOf('valid_time');
@@ -587,7 +597,7 @@
           delta: "--.-",
           deltaValue: 0.0,
           isVerified: false,
-          verification: { asosDew: null, nbmErr: null, tdaiErr: null, skillScore: null },
+          verification: { asosDew: null, ndfdDew: null, nbmErr: null, tdaiErr: null, skillScore: null, ndfdSkillScore: null },
           probabilistic: { q10: null, q25: null, q50: null, q75: null, q90: null },
           topDrivers: (idxTopDrivers !== -1 && row[idxTopDrivers]) ? row[idxTopDrivers].replace(/"/g, '').trim() : ""
         };
@@ -653,12 +663,23 @@
           const tdaiErr = (row[idxTdaiErr] !== "" && row[idxTdaiErr] !== undefined) ? parseFloat(row[idxTdaiErr]) : null;
           const skill   = (row[idxSkill] !== "" && row[idxSkill] !== undefined) ? parseFloat(row[idxSkill]) : null;
 
+          // NDFD Dewpoint is a raw reference forecast value; NDFD Error/Skill
+          // Score are pre-computed server-side (TdAI_deterministic_verification.py)
+          // using the same NBM-error denominator as TdAI's own skill score,
+          // so the two are directly comparable - just read them here, same
+          // as nbmErr/tdaiErr/skill above.
+          const ndfdDewRaw = (idxNdfdDew !== -1 && row[idxNdfdDew] !== "" && row[idxNdfdDew] !== undefined) ? parseFloat(row[idxNdfdDew]) : NaN;
+          const hasNdfd = hasAsos && !isNaN(ndfdDewRaw);
+          const ndfdSkill = (idxNdfdSkill !== -1 && row[idxNdfdSkill] !== "" && row[idxNdfdSkill] !== undefined) ? parseFloat(row[idxNdfdSkill]) : null;
+
           parsedRowObj.isVerified = hasAsos;
           parsedRowObj.verification = {
             asosDew: hasAsos ? asosDew.toFixed(1) : null,
+            ndfdDew: hasNdfd ? ndfdDewRaw.toFixed(1) : null,
             nbmErr: (nbmErr !== null && !isNaN(nbmErr)) ? nbmErr.toFixed(1) : null,
             tdaiErr: (tdaiErr !== null && !isNaN(tdaiErr)) ? tdaiErr.toFixed(1) : null,
-            skillScore: (skill !== null && !isNaN(skill)) ? skill.toFixed(1) : null
+            skillScore: (skill !== null && !isNaN(skill)) ? skill.toFixed(1) : null,
+            ndfdSkillScore: (ndfdSkill !== null && !isNaN(ndfdSkill)) ? ndfdSkill.toFixed(1) : null
           };
         }
         return parsedRowObj;
@@ -888,6 +909,7 @@
       if (data.isVerified) {
         vPanel.classList.remove('hidden');
         document.getElementById(`${s}-v-asos-dew`).innerText = data.verification.asosDew + "°F";
+        document.getElementById(`${s}-v-ndfd-dew`).innerText = data.verification.ndfdDew !== null ? (data.verification.ndfdDew + "°F") : "--.-°F";
 
         const nbmErr = parseFloat(data.verification.nbmErr);
         const tdaiErr = parseFloat(data.verification.tdaiErr);
@@ -911,6 +933,22 @@
           } else {
             skillNode.className = "font-black text-base text-rose-400";
           }
+        }
+
+        // NDFD Skill Score - same N/A-on-zero-denominator and sign-coloring
+        // convention as TdAI's skill score above, so the two read the same
+        // way at a glance (this is the "is TdAI beating NDFD" comparison).
+        const ndfdSkillNode = document.getElementById(`${s}-v-ndfd-skill-score`);
+        if (data.verification.ndfdDew === null || data.verification.ndfdSkillScore === null) {
+          ndfdSkillNode.innerText = "--.-%";
+          ndfdSkillNode.className = "font-extrabold text-sm text-slate-500";
+        } else if (nbmErr === 0) {
+          ndfdSkillNode.innerText = "N/A";
+          ndfdSkillNode.className = "font-black text-base text-slate-400 italic";
+        } else {
+          const ndfdSkillScore = parseFloat(data.verification.ndfdSkillScore);
+          ndfdSkillNode.innerText = (ndfdSkillScore >= 0 ? "+" : "") + data.verification.ndfdSkillScore + "%";
+          ndfdSkillNode.className = "font-black text-base " + (ndfdSkillScore > 0 ? "text-emerald-400" : "text-rose-400");
         }
 
         //const skillScore = parseFloat(data.verification.skillScore);
