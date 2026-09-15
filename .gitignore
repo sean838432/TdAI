@@ -1,0 +1,14 @@
+.vscode
+.claude
+__pycache__
+*.idx
+/data_download/HRRR_forecast_soundings
+/data_download/HRRR_vvel_soilw_mslma_hgt
+/data_download/NBM_data/NBM_Raw_Data_Files
+/data_download/ASOS_data
+/data_download/NBM_data
+/model_training_STATIC/2025_evaluation*
+/model_training_STATIC/training_dataset
+/model_training_STATIC/trained_models_EVALUATION
+/dataset_testing
+/Trash
