@@ -922,7 +922,7 @@
         // Trap the divide-by-zero condition where original error is exactly 0.0
         if (nbmErr === 0) {
           skillNode.innerText = "N/A";
-          skillNode.className = "font-black text-base text-slate-400 italic";
+          skillNode.className = "font-black text-base text-slate-400";
         } else {
           skillNode.innerText = (skillScore >= 0 ? "+" : "") + data.verification.skillScore + "%";
 
@@ -944,7 +944,7 @@
           ndfdSkillNode.className = "font-extrabold text-sm text-slate-500";
         } else if (nbmErr === 0) {
           ndfdSkillNode.innerText = "N/A";
-          ndfdSkillNode.className = "font-black text-base text-slate-400 italic";
+          ndfdSkillNode.className = "font-black text-base text-slate-400";
         } else {
           const ndfdSkillScore = parseFloat(data.verification.ndfdSkillScore);
           ndfdSkillNode.innerText = (ndfdSkillScore >= 0 ? "+" : "") + data.verification.ndfdSkillScore + "%";
