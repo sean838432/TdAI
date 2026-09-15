@@ -405,9 +405,7 @@ def process_station(station, lat, lon, target_run_hour, forecast_hours, date_str
     nbm_e = np.exp((17.625 * nbm_tdc) / (243.04 + nbm_tdc))
     nbm_df['NBM RH (%)'] = round(np.clip(100 * (nbm_e / nbm_es), 0.0, 100.0), 1)
 
-    # Replace the single-hour (21Z) SKY cover with the 15Z-21Z average -
-    # exact same logic as model_training/TdAI_v3.1_Training_Dataset_Compilation.py
-    # so live inference sees the same feature the models were trained on.
+    # Replace the single-hour (21Z) SKY cover with the 15Z-21Z average
     print("☁️ Replacing single-hour 21Z SKY cover with the 15Z-21Z average (matches training)...")
     nbm_df['valid_date'] = nbm_df['valid_time'].dt.normalize()
     sky_window = (nbm_df['valid_time'].dt.hour >= 15) & (nbm_df['valid_time'].dt.hour <= 21)
@@ -485,7 +483,7 @@ def process_station(station, lat, lon, target_run_hour, forecast_hours, date_str
     # -------------------------------------------------------------------------
     # 🔮 SECTION 4: MACHINE LEARNING GBDT PREDICTION BIAS ENGINE (THRESHOLD GATED)
     # -------------------------------------------------------------------------
-    model_dir = os.path.join(base_path, "model_training", "trained_models", station)
+    model_dir = os.path.join(base_path, "model_training_AUTO", "trained_models", station)
     day1_fhr, day2_fhr = forecast_hours[0], forecast_hours[1]
 
     # The 00Z cycle (run overnight, ~03Z cron) maps to '03z_DayN' models; the

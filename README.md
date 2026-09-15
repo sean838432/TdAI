@@ -57,5 +57,3 @@ The repository consists of three main components:
 ---
 
 ## Future Additions
-
-* Add a continual training workflow so the model is retrained at the end of every month with that month's new data. Then drop off the earliest month so that it gradually eliminates old NBM versions

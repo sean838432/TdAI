@@ -1,0 +1,53 @@
+name: TdAI Monthly Auto-Retrain
+
+on:
+  workflow_dispatch:
+
+jobs:
+  run-auto-retrain:
+    runs-on: ubuntu-latest
+    # Backfilling a full month one day at a time (HRRR + NBM downloads,
+    # then retraining 24 models) is estimated at well under the 6-hour
+    # GitHub Actions runner limit, but leave real headroom since actual
+    # HRRR/NBM archive latency can vary.
+    timeout-minutes: 340
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout Repository Code
+        uses: actions/checkout@v4
+
+      - name: Set Up Python Environment
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install System GRIB Unpacking Drivers
+        run: |
+          sudo apt-get update
+          for i in {1..5}; do
+            sudo apt-get install -y libeccodes-dev eccodes && break || sleep 15;
+          done
+
+      - name: Install Python Science Libraries
+        run: |
+          pip install -r requirements.txt
+
+      - name: Execute TdAI Monthly Auto-Retrain Pipeline
+        run: python TdAI_auto_retrain.py
+
+      - name: Commit and Push Updated Training Data & Models
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+
+          # All auto-retrain output lives under model_training_AUTO/ - it
+          # reads model_training_STATIC/ as a one-time seed but never
+          # writes there. This is now the directory the operational
+          # scripts load models from directly (see TdAI_deterministic_
+          # operational.py / TdAI_probabilistic_operational.py).
+          git add model_training_AUTO/ 2>/dev/null || echo "model_training_AUTO folder not found"
+
+          git commit -m "Monthly auto-retrain: backfilled model_training_AUTO training data and models [Skip CI]" || echo "No changes to commit"
+
+          git push origin HEAD:${{ github.ref_name }}

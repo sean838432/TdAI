@@ -20,7 +20,7 @@ from sklearn.metrics import mean_absolute_error
 
 ################################## INPUTS ####################################
 base_path = "/home/sean834/TdAI/"
-training_dataset_path = os.path.join(base_path, "model_training/training_dataset/")
+training_dataset_path = os.path.join(base_path, "model_training_STATIC/training_dataset/")
 
 # This script scores models against HOLDOUT_YEAR as a strictly-unseen test
 # set, so it must ONLY ever load from trained_models_EVALUATION/ - the folder
@@ -29,7 +29,7 @@ training_dataset_path = os.path.join(base_path, "model_training/training_dataset
 # PRODUCTION_MODE=True models trained on ALL years including HOLDOUT_YEAR, so
 # evaluating against those would silently score a model on data it already
 # saw during training.
-models_output_path = os.path.join(base_path, "model_training/trained_models_EVALUATION/")
+models_output_path = os.path.join(base_path, "model_training_STATIC/trained_models_EVALUATION/")
 
 STATIONS = ['FVE', 'CAR', 'HUL', 'MLT', 'GNR', 'BGR']
 CYCLE_NAMES = ['03z_Day1', '03z_Day2', '15z_Day1', '15z_Day2']
@@ -191,7 +191,7 @@ def load_ungated_probabilistic(station, c_name):
 ####################################################################
 
 if do_scatter_plot:
-    scatter_output_path = os.path.join(base_path, f"model_training/{HOLDOUT_YEAR}_evaluation_OFFICIAL/")
+    scatter_output_path = os.path.join(base_path, f"model_training_STATIC/{HOLDOUT_YEAR}_evaluation_OFFICIAL/")
     os.makedirs(scatter_output_path, exist_ok=True)
 
     print("\n" + "=" * 70)
@@ -308,7 +308,7 @@ if do_scatter_plot:
 ####################################################################
 
 if do_ci_band_plot:
-    ci_output_path = os.path.join(base_path, f"model_training/{HOLDOUT_YEAR}_evaluation_OFFICIAL/")
+    ci_output_path = os.path.join(base_path, f"model_training_STATIC/{HOLDOUT_YEAR}_evaluation_OFFICIAL/")
     os.makedirs(ci_output_path, exist_ok=True)
 
     print("\n" + "=" * 70)
@@ -592,7 +592,7 @@ if do_ungated_coverage_check:
 # coverage check above) and would distort both diagnostics.
 
 if do_pit_and_crps_check:
-    pit_output_path = os.path.join(base_path, f"model_training/{HOLDOUT_YEAR}_evaluation_OFFICIAL/")
+    pit_output_path = os.path.join(base_path, f"model_training_STATIC/{HOLDOUT_YEAR}_evaluation_OFFICIAL/")
     os.makedirs(pit_output_path, exist_ok=True)
 
     print("\n" + "=" * 70)

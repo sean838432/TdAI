@@ -177,7 +177,7 @@ def calculate_lapse_rate_vectorized(df, p_bottom, p_top):
 
 base_path = "/home/sean834/TdAI/"
 data_path = os.path.join(base_path, "data_download/")
-trained_models_path = os.path.join(base_path, "model_training/training_dataset/")
+trained_models_path = os.path.join(base_path, "model_training_STATIC/training_dataset/")
 STATIONS = ['CAR', 'HUL', 'MLT', 'GNR', 'BGR', 'FVE']
 
 # 📅 Define dataset date thresholds (YYYY-MM-DD)

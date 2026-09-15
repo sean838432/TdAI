@@ -82,7 +82,7 @@ STATIONS = ['CAR', 'FVE', 'HUL', 'MLT', 'GNR', 'BGR']
 
 # Define paths
 base_path = "/home/sean834/TdAI/"
-training_dataset_path = os.path.join(base_path, "model_training/training_dataset/")
+training_dataset_path = os.path.join(base_path, "model_training_STATIC/training_dataset/")
 
 # Development/validation runs (PRODUCTION_MODE=False) hold out HOLDOUT_YEAR
 # and save into a separate folder so they can never overwrite the live
@@ -91,7 +91,7 @@ training_dataset_path = os.path.join(base_path, "model_training/training_dataset
 # production model trained on ALL years (including HOLDOUT_YEAR) would
 # otherwise get "validated" against data it was already trained on.
 models_output_folder = "trained_models" if PRODUCTION_MODE else "trained_models_EVALUATION"
-models_output_path = os.path.join(base_path, f"model_training/{models_output_folder}/")
+models_output_path = os.path.join(base_path, f"model_training_STATIC/{models_output_folder}/")
 
 # Define the 4 target operational cycles
 CYCLE_NAMES = ['03z_Day1', '03z_Day2', '15z_Day1', '15z_Day2']

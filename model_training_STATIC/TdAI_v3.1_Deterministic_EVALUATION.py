@@ -22,7 +22,7 @@ from sklearn.metrics import mean_absolute_error
 
 ################################## INPUTS ####################################
 base_path = "/home/sean834/TdAI/"
-training_dataset_path = os.path.join(base_path, "model_training/training_dataset/")
+training_dataset_path = os.path.join(base_path, "model_training_STATIC/training_dataset/")
 
 # This script scores models against HOLDOUT_YEAR as a strictly-unseen test
 # set, so it must ONLY ever load from trained_models_EVALUATION/ - the folder
@@ -31,7 +31,7 @@ training_dataset_path = os.path.join(base_path, "model_training/training_dataset
 # PRODUCTION_MODE=True models trained on ALL years including HOLDOUT_YEAR, so
 # evaluating against those would silently score a model on data it already
 # saw during training.
-models_output_path = os.path.join(base_path, "model_training/trained_models_EVALUATION/")
+models_output_path = os.path.join(base_path, "model_training_STATIC/trained_models_EVALUATION/")
 
 STATIONS = ['FVE', 'CAR', 'HUL', 'MLT', 'GNR', 'BGR']
 CYCLE_NAMES = ['03z_Day1', '03z_Day2', '15z_Day1', '15z_Day2']
@@ -44,6 +44,18 @@ do_top25 = False
 do_scatter_plot = False
 do_feature_importance = False
 do_bust_threshold_count = True
+
+# When True, the scatter plot colors each point by which cycle produced it
+# (03z_Day1/03z_Day2/15z_Day1/15z_Day2) instead of one uniform color - for
+# checking whether performance visibly differs by lead time within a
+# station's pooled points, e.g. Day2 (longer lead) running bolder than Day1.
+do_color_by_cycle = False
+CYCLE_COLORS = {
+    '03z_Day1': '#1f77b4',  # blue
+    '03z_Day2': '#2ca02c',  # green
+    '15z_Day1': '#ff7f0e',  # orange
+    '15z_Day2': '#9467bd',  # purple
+}
 
 N_TOP_FEATURES = 10
 
@@ -103,7 +115,7 @@ def load_gated_moist_bust(station, c_name):
 ####################################################################
 
 if do_top25:
-    top25_output_path = os.path.join(base_path, f"model_training/{HOLDOUT_YEAR}_evaluation_OFFICIAL/top25_plots/")
+    top25_output_path = os.path.join(base_path, f"model_training_STATIC/{HOLDOUT_YEAR}_evaluation_OFFICIAL/top25_plots/")
     os.makedirs(top25_output_path, exist_ok=True)
 
     print("\n" + "=" * 70)
@@ -203,7 +215,7 @@ if do_top25:
 ####################################################################
 
 if do_scatter_plot:
-    scatter_output_path = os.path.join(base_path, f"model_training/{HOLDOUT_YEAR}_evaluation_OFFICIAL/")
+    scatter_output_path = os.path.join(base_path, f"model_training_STATIC/{HOLDOUT_YEAR}_evaluation_OFFICIAL/")
     os.makedirs(scatter_output_path, exist_ok=True)
 
     print("\n" + "=" * 70)
@@ -213,7 +225,7 @@ if do_scatter_plot:
     station_pooled = {}
 
     for station in STATIONS:
-        actual_list, pred_list = [], []
+        actual_list, pred_list, cycle_list = [], [], []
 
         for c_name in CYCLE_NAMES:
             loaded = load_gated_moist_bust(station, c_name)
@@ -226,12 +238,13 @@ if do_scatter_plot:
 
             actual_list.append(y_moist.values)
             pred_list.append(y_pred)
+            cycle_list.append(np.full(len(y_moist), c_name))
 
         if not actual_list:
             print(f"⚠️ No {HOLDOUT_YEAR} moist-bust + gated samples across any cycle for K{station}. Skipping.")
             continue
 
-        station_pooled[station] = (np.concatenate(actual_list), np.concatenate(pred_list))
+        station_pooled[station] = (np.concatenate(actual_list), np.concatenate(pred_list), np.concatenate(cycle_list))
 
     if not station_pooled:
         print("⚠️ No stations had usable data for the scatter plot.")
@@ -265,7 +278,7 @@ if do_scatter_plot:
         fig, axes = plt.subplots(n_rows, n_cols, figsize=(6 * n_cols, 5.6 * n_rows), squeeze=False)
         axes_flat = axes.flatten()
 
-        for ax, (station, (actual, predicted)) in zip(axes_flat, station_pooled.items()):
+        for ax, (station, (actual, predicted, cycles)) in zip(axes_flat, station_pooled.items()):
             if actual.std() > 0 and predicted.std() > 0:
                 r_squared = np.corrcoef(actual, predicted)[0, 1] ** 2
             else:
@@ -275,7 +288,15 @@ if do_scatter_plot:
             nbm_mae = np.abs(actual).mean()
             skill_score = (1.0 - tdai_mae / nbm_mae) * 100.0 if nbm_mae > 0 else float('nan')
 
-            ax.scatter(actual, predicted, s=18, alpha=0.5, color='dodgerblue', edgecolor='none')
+            if do_color_by_cycle:
+                for c_name in CYCLE_NAMES:
+                    c_mask = cycles == c_name
+                    if c_mask.sum() == 0:
+                        continue
+                    ax.scatter(actual[c_mask], predicted[c_mask], s=18, alpha=0.6,
+                               color=CYCLE_COLORS[c_name], edgecolor='none', label=c_name)
+            else:
+                ax.scatter(actual, predicted, s=18, alpha=0.5, color='dodgerblue', edgecolor='none')
 
             lo = min(actual.min(), predicted.min()) - 1
             hi = max(actual.max(), predicted.max()) + 1
@@ -305,7 +326,7 @@ if do_scatter_plot:
             ax.set_title(f'K{station} (n={len(actual)}, R²={r_squared:.2f}, Skill={skill_score:+.1f}%)', #\n{breakdown_block}',
                          fontsize=15, fontweight='bold')
             ax.grid(linestyle='--', alpha=0.4)
-            ax.legend(fontsize=12, loc='upper left')
+            ax.legend(fontsize=9 if do_color_by_cycle else 12, loc='upper left')
 
         for ax in axes_flat[len(station_pooled):]:
             ax.axis('off')
@@ -314,7 +335,8 @@ if do_scatter_plot:
                      fontsize=15, fontweight='bold')
         fig.tight_layout(rect=[0, 0, 1, 0.99])
 
-        scatter_plot_path = os.path.join(scatter_output_path, "residual_scatter_by_station.png")
+        scatter_suffix = "_by_cycle" if do_color_by_cycle else ""
+        scatter_plot_path = os.path.join(scatter_output_path, f"residual_scatter_by_station{scatter_suffix}.png")
         fig.savefig(scatter_plot_path, dpi=150)
         plt.close(fig)
         print(f"🖼️  Saved -> {scatter_plot_path}")
@@ -330,7 +352,7 @@ if do_scatter_plot:
 ####################################################################
 
 if do_feature_importance:
-    importance_output_path = os.path.join(base_path, f"model_training/{HOLDOUT_YEAR}_evaluation_OFFICIAL/")
+    importance_output_path = os.path.join(base_path, f"model_training_STATIC/{HOLDOUT_YEAR}_evaluation_OFFICIAL/")
     os.makedirs(importance_output_path, exist_ok=True)
 
     print("\n" + "=" * 70)
