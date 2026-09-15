@@ -18,6 +18,7 @@ its own at all) to happen to touch that row.
 
 import os
 import io
+import time
 import datetime
 import requests
 import numpy as np
@@ -108,6 +109,16 @@ def verify_pending_rows(station, base_path):
                     bulk_asos_df['rounded_dt'] = bulk_asos_df['valid_dt'].dt.round('h')
                     bulk_asos_df['rounded_valid_time_str'] = bulk_asos_df['rounded_dt'].dt.strftime('%Y-%m-%d %H:%M:%S')
                     print("   ✅ Bulk observation database compiled and cached locally in workflow memory.")
+                else:
+                    # This used to fail completely silently - a 200 response
+                    # with an empty body or missing 'dwpf' column (a real,
+                    # observed transient IEM mesonet hiccup) left no trace at
+                    # all in the log, making a skipped station look identical
+                    # to "nothing was missing to begin with."
+                    print(f"   ⚠️ Bulk ASOS response for K{station} was empty or missing expected columns "
+                          f"(got {len(bulk_asos_df)} rows) - will retry on the next run.")
+            else:
+                print(f"   ⚠️ Bulk ASOS request for K{station} returned status {res.status_code} - will retry on the next run.")
         except Exception as e:
             print(f"   ❌ Network latency during bulk dataset retrieval: {e}")
 
@@ -187,6 +198,15 @@ def main():
         except Exception as e:
             print(f"❌ K{station} verification pass failed: {e}")
             continue
+
+        # A real run's logs showed the IEM mesonet bulk-ASOS endpoint
+        # silently returning empty/non-CSV responses starting with the 3rd
+        # of 6 back-to-back station requests (the first two always
+        # succeeded, every one after consistently failed) - almost
+        # certainly a rate limit/throttle tripped by hitting the same
+        # service six times with zero delay. A short pause between stations
+        # avoids that.
+        time.sleep(2)
 
     print("\n✨ VERIFICATION COMPLETE!")
 
