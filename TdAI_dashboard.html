@@ -926,18 +926,24 @@
         } else {
           skillNode.innerText = (skillScore >= 0 ? "+" : "") + data.verification.skillScore + "%";
 
-          if (skillScore > 0) {
+          // TdAI predicted NO change (deferred entirely to NBM) and NBM
+          // itself under-forecast (ASOS > NBM, i.e. nbmErr < 0) - the
+          // resulting 0.0% skill score isn't TdAI "failing" here, it's
+          // TdAI declining to guess rather than actively getting it
+          // wrong, so it gets the same neutral grey as the N/A case
+          // instead of red (which would wrongly read as "TdAI made this
+          // worse").
+          const tdaiDeferred = Math.abs(data.deltaValue) < 0.05;
+          if (skillScore === 0 && tdaiDeferred && nbmErr < 0) {
+            skillNode.className = "font-black text-base text-slate-400";
+          } else if (skillScore > 0) {
             skillNode.className = "font-black text-base text-emerald-400";
-          //} else if (skillScore === 0) {
-          //  skillNode.className = "font-black text-base text-slate-400";
           } else {
             skillNode.className = "font-black text-base text-rose-400";
           }
         }
 
-        // NDFD Skill Score - same N/A-on-zero-denominator and sign-coloring
-        // convention as TdAI's skill score above, so the two read the same
-        // way at a glance (this is the "is TdAI beating NDFD" comparison).
+        // NDFD Skill Score
         const ndfdSkillNode = document.getElementById(`${s}-v-ndfd-skill-score`);
         if (data.verification.ndfdDew === null || data.verification.ndfdSkillScore === null) {
           ndfdSkillNode.innerText = "--.-%";
@@ -950,18 +956,6 @@
           ndfdSkillNode.innerText = (ndfdSkillScore >= 0 ? "+" : "") + data.verification.ndfdSkillScore + "%";
           ndfdSkillNode.className = "font-black text-base " + (ndfdSkillScore > 0 ? "text-emerald-400" : "text-rose-400");
         }
-
-        //const skillScore = parseFloat(data.verification.skillScore);
-        //const skillNode = document.getElementById(`${s}-v-skill-score`);
-        //skillNode.innerText = (skillScore >= 0 ? "+" : "") + data.verification.skillScore + "%";
-
-        //if (skillScore > 0) {
-        //  skillNode.className = "font-black text-base text-emerald-400";
-        //} else if (skillScore === 0) {
-        //  skillNode.className = "font-black text-base text-slate-400";
-        //} else {
-        //  skillNode.className = "font-black text-base text-rose-400";
-        //}
       } else {
         vPanel.classList.add('hidden');
       }

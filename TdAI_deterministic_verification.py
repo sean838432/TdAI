@@ -100,15 +100,30 @@ def verify_pending_rows(station, base_path):
         )
 
         bulk_asos_df = pd.DataFrame()
-        try:
-            res = requests.get(asos_url, timeout=25)
-            if res.status_code == 200:
-                bulk_asos_df = pd.read_csv(io.StringIO(res.text), comment='#')
-                if not bulk_asos_df.empty and 'dwpf' in bulk_asos_df.columns:
+        # The IEM mesonet endpoint occasionally throws a transient error
+        # (a straight 503, or a 200 with an empty/malformed body) on a
+        # per-request basis, unrelated to which station or request order -
+        # confirmed live (KCAR hit this on its own on a real 2130Z run,
+        # skipping its whole ASOS backfill for that pass while other
+        # stations succeeded). A short retry-with-backoff clears it almost
+        # every time, matching the same fix already applied to
+        # TdAI_auto_retrain.py's fetch_bulk_asos.
+        for attempt in range(3):
+            try:
+                res = requests.get(asos_url, timeout=25)
+                if res.status_code != 200:
+                    print(f"   ⚠️ Bulk ASOS request for K{station} returned status {res.status_code} (attempt {attempt + 1}/3).")
+                    time.sleep(5 * (attempt + 1))
+                    continue
+
+                candidate_df = pd.read_csv(io.StringIO(res.text), comment='#')
+                if not candidate_df.empty and 'dwpf' in candidate_df.columns:
+                    bulk_asos_df = candidate_df
                     bulk_asos_df['valid_dt'] = pd.to_datetime(bulk_asos_df['valid'])
                     bulk_asos_df['rounded_dt'] = bulk_asos_df['valid_dt'].dt.round('h')
                     bulk_asos_df['rounded_valid_time_str'] = bulk_asos_df['rounded_dt'].dt.strftime('%Y-%m-%d %H:%M:%S')
                     print("   ✅ Bulk observation database compiled and cached locally in workflow memory.")
+                    break
                 else:
                     # This used to fail completely silently - a 200 response
                     # with an empty body or missing 'dwpf' column (a real,
@@ -116,11 +131,14 @@ def verify_pending_rows(station, base_path):
                     # all in the log, making a skipped station look identical
                     # to "nothing was missing to begin with."
                     print(f"   ⚠️ Bulk ASOS response for K{station} was empty or missing expected columns "
-                          f"(got {len(bulk_asos_df)} rows) - will retry on the next run.")
-            else:
-                print(f"   ⚠️ Bulk ASOS request for K{station} returned status {res.status_code} - will retry on the next run.")
-        except Exception as e:
-            print(f"   ❌ Network latency during bulk dataset retrieval: {e}")
+                          f"(got {len(candidate_df)} rows, attempt {attempt + 1}/3).")
+                    time.sleep(5 * (attempt + 1))
+            except Exception as e:
+                print(f"   ❌ Network latency during bulk dataset retrieval (attempt {attempt + 1}/3): {e}")
+                time.sleep(5 * (attempt + 1))
+
+        if bulk_asos_df.empty:
+            print(f"   ❌ Bulk ASOS request for K{station} failed after 3 attempts - will retry on the next run.")
 
         if not bulk_asos_df.empty and 'rounded_valid_time_str' in bulk_asos_df.columns:
             for idx in missing_indices:
