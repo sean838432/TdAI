@@ -96,7 +96,7 @@ seed_everything(42)
 # instead of running the real backfill/retrain. Nothing is written to disk
 # in this mode - it's read-only against the live training dataset and pure
 # network/compute otherwise. Dates are inclusive, 'YYYY-MM-DD', UTC.
-TEST_MODE = True
+TEST_MODE = False
 TEST_START_DATE = '2026-06-15'
 TEST_END_DATE = '2026-06-15'
 
