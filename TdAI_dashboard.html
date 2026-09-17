@@ -641,13 +641,16 @@
             // NBM reports gust in knots, so convert (1 kt = 1.15078 mph).
             // Checked against both NBM's own RH and TdAI's corrected RH -
             // same gust value for both, since TdAI only corrects dewpoint
-            // and has no wind forecast of its own.
+            // and has no wind forecast of its own. The RH check rounds
+            // first so it always agrees with the displayed whole-percent
+            // RH (e.g. a true 29.6% displays as "30%" but would otherwise
+            // still trip "< 30%", looking self-contradictory on screen).
             if (!isNaN(nbmGustKts)) {
               const gustMph = nbmGustKts * 1.15078;
               parsedRowObj.gustMph = gustMph.toFixed(0);
               const gustMet = gustMph > 25;
-              parsedRowObj.rfw.nbmMet = gustMet && nbmRhNum !== null && nbmRhNum < 30;
-              parsedRowObj.rfw.tdaiMet = gustMet && tdaiRhNum !== null && tdaiRhNum < 30;
+              parsedRowObj.rfw.nbmMet = gustMet && nbmRhNum !== null && Math.round(nbmRhNum) < 30;
+              parsedRowObj.rfw.tdaiMet = gustMet && tdaiRhNum !== null && Math.round(tdaiRhNum) < 30;
             }
           }
 
