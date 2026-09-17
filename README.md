@@ -12,7 +12,7 @@ TdAI is an NBM postprocessing model that uses a Gradient Boosted Decision Tree (
 ## TdAI Model Architecture
 
 1. **Machine Learning Algorithm**: Gradient Boosted Decision Trees
-2. **Training Dataset**: TdAI is trained on the most recent 6 years of 21z NBM & HRRR data using a sliding training window. Training strictly on 21z data maximizes performance by focusing exclusively on peak boundary layer mixing and minimum diurnal RH.
+2. **Training Dataset**: TdAI is trained on the most recent 6 years of 21z NBM & HRRR data from March to November using a sliding training window. Training strictly on 21z data maximizes performance by focusing exclusively on peak boundary layer mixing and minimum diurnal RH.
 3. **Cycle Specialization**: Separate models for both deterministic and probabilistic versions were trained for each operational cycle of TdAI (run time and forecast hour) to prevent structural bias:
    * **02:45z TdAI Day 1**: 00z HRRR at f21 and 01z NBM at f20
    * **02:45z TdAI Day 2**: 00z HRRR at f45 and 01z NBM at f44
