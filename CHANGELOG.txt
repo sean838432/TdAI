@@ -1,5 +1,7 @@
 TdAI v3.2
-1) An automatic sliding window retraining algorithm was developed to automatically retrain the models on new data during the 1st of every month. The sliding window preserves only the most recent 6 years of data.
+1) An automated sliding training window was added that preserves the most recent 6 years of March-November HRRR & NBM data. A monthly cron (running on the first of every month) brings the training dataset up to the current date and drops all dates older than 6 years (this helps combat the changing NBM versions in the training dataset).
+2) Automated NDFD verification complimenting TdAI verification. This helps the forecaster understand how their forecast compared to TdAI's prediction.
+3) A verification cron has been set up to run every day at 21:30 UTC which scores the NBM, TdAI, and NDFD dew point forecasts.
 
 TdAI v3.1
 1) 15-21 average sky cover replaces just 21z sky cover as a predictor
