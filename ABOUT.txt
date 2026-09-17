@@ -15,15 +15,15 @@ TdAI is a machine learning model designed to bias correct the NBM's deterministi
 
 1. **Machine Learning Algorithm**: Gradient Boosted Decision Trees
 
-1. **Training Dataset**: TdAI is trained only on 21z NBM & HRRR sounding data from March 2021 to July 2026. Training strictly on 21z data maximizes performance by focusing exclusively on peak boundary layer mixing and minimum diurnal RH.
+2. **Training Dataset**: TdAI is trained on the most recent 6 years of 21z NBM & HRRR data using a sliding training window (the training dataset is updated to the current day on the 1st of each month and dates exceeding 6 years are dropped). Training strictly on 21z data maximizes performance by focusing exclusively on peak boundary layer mixing and minimum diurnal RH.
 
-2. **Cycle Specialization**: Separate models for both deterministic and probabilistic versions were trained for each operational cycle of TdAI (run time and forecast hour) to prevent structural bias:
+3. **Cycle Specialization**: Separate models for both deterministic and probabilistic versions were trained for each operational cycle of TdAI (run time and forecast hour) to prevent structural bias:
    * **02:45z TdAI Day 1**: 00z HRRR at f21 and 01z NBM at f20
    * **02:45z TdAI Day 2**: 00z HRRR at f45 and 01z NBM at f44
    * **14:45z TdAI Day 1**: 12z HRRR at f09 and 13z NBM at f08
    * **14:45z TdAI Day 2**: 12z HRRR at f33 and 13z NBM at f32
 
-3. **Execution Gating Criteria**: TdAI runs only when **NBM RH ≤ 60%**, **T ≥ 50°F**, and **Cloud Cover ≤ 60%**. This prevents forecasters from seeing TdAI output on non-fire weather days where predictions carry little operational significance.
+4. **Execution Gating Criteria**: TdAI runs only when **NBM RH ≤ 60%**, **T ≥ 50°F**, and **Cloud Cover ≤ 60%**. This prevents forecasters from seeing TdAI output on non-fire weather days where predictions carry little operational significance.
 
 ## Feature Variables
 * NBM Temperature (°C)
