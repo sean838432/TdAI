@@ -1,9 +1,10 @@
 # How to Train TdAI on New ASOS Sites #
 The following is a comprehensive guide for training TdAI on your own ASOS sites. Before going into detail, here are a few general guidelines:
 
-1. The deterministic and probabilistic models should be trained on the 6 most recent years of data to ensure stability
-2. I recommend not including dates well outside your fire season (e.g. winter) in the training dataset. We want to make sure the models are primarily learning the typical fire weather patterns favorable for NBM Td to be too moist
-3. The model trains to correct NBM error at 21 UTC as this is the approximate time of the driest conditions, but this can be changed based on your time zone and local effects.
+1. I recommend choosing inland ASOS sites to train on. Those too close to the ocean will have a heavy marine influence that will result in less high end moist NBM errors attributed to under mixing which will decrease model performance. If in doubt, compare the percentage of samples at the ASOS with NBM error >= 5F with those further inland and make sure it isn't too drastic a difference. 
+2. The deterministic and probabilistic models should be trained on the 6 most recent years of data to ensure stability
+3. I recommend not including dates well outside your fire season (e.g. winter) in the training dataset. We want to make sure the models are primarily learning the typical fire weather patterns favorable for NBM Td to be too moist
+4. The model trains to correct NBM error at 21 UTC as this is the approximate time of the driest conditions, but this can be changed based on your time zone and local effects.
 
 
 ## Step 1: Data Download
@@ -19,7 +20,7 @@ TdAI/
     └── sounding_compilation_parquet.py
 ```
 
-**ASOS_download.py**: Python script for downloading ASOS data. It will output a csv file combining all ASOS observations within a specified date range 
+**ASOS_download.py**: Python script for downloading ASOS data. It will output a csv file combining all ASOS Td observations within a specified date range 
 
 **NBM_download.py**: Python script for downloading NBM T, Td, sky, wind speed, wind direction, and mixing height. It will output a csv file combining all NBM day 1 and day 2 forecasts at 15, 18, and 21 UTC for a specified init time (should be 01z and 13z to align with the NBM forecasters edit)
 
@@ -41,6 +42,7 @@ After all data is downloaded, navigate to \model_training_STATIC and follow thes
 ```
 TdAI/
 ├── model_training_STATIC/
+    ├── trained_models/
     ├── TdAI_Deterministic_EVALUATION.py
     ├── TdAI_Deterministic_TRAINING.py
     ├── TdAI_Probabilistic_EVALUATION.py
@@ -54,7 +56,7 @@ TdAI/
 Python TdAI_Training_Dataset_Compilation.py
 ```
 
-Running this script will combine NBM - ASOS error (the target variable) with NBM and HRRR sounding data (the predictors) along a constant valid time.
+Running this script will combine NBM - ASOS error (the target variable) with NBM station and HRRR sounding data (the predictors) along a constant valid time index.
 
 
 **2. Train the Deterministic Models**
@@ -84,10 +86,8 @@ Output Trained Deterministic Models:
 Python TdAI_Deterministic_EVALUATION.py
 ```
 
-Running this script will only work if you held out a year for model evaluation. You can choose from multiple different evaluation techniques do_top25 will show model performance on the top 25 largest NBM moist errors at each site
-from the evaluation year, do_scatter_plot will show a scatter plot of observed NBM error vs. model predicted NBM error at each site (which includes a coefficient of determination and skill score calculation), 
-do_feature_importance will produce a feature importance plot showing the most importance variables contributing to the models' predictions at each site, and do_bust_threshold_count will compute a table counting the number of samples
-above a certain BUST_EXCEEDANCE_THRESHOLD_F value. Evaluation results from all TdAI models will be pooled together.
+_Only run this script if you held out a year for model evaluation._ You can choose from multiple different evaluation techniques do_top25 will show model performance on the top 25 largest NBM moist errors at each site from the evaluation year, do_scatter_plot will show a scatter plot of observed NBM error vs. model predicted NBM error at each site (which includes a coefficient of determination and skill score calculation), 
+do_feature_importance will produce a feature importance plot showing the most importance variables contributing to the models' predictions at each site, and do_bust_threshold_count will compute a table counting the number of samples above a certain BUST_EXCEEDANCE_THRESHOLD_F value. Evaluation results from all TdAI models will be pooled together.
 
 **4. Train the Probabilistic Models**
 
@@ -95,7 +95,7 @@ above a certain BUST_EXCEEDANCE_THRESHOLD_F value. Evaluation results from all T
 Python TdAI_Probabilistic_TRAINING.py
 ```
 
-Run this script to train an array of probabilistic models (10th, 25th, 50th, 75th, 90th) for each forecast cycle (combos of HRRR and NBM init time and forecast hour). 
+Run this script to train an array of probabilistic models (10th, 25th, 50th, 75th, 90th) for each forecast cycle (combos of HRRR and NBM init time and forecast hour). See below for what this framework looks like. As with the deterministic models, it is recommended not to significantly alter the GBDT model hyperparameters as these have been show to provide good performance while minimizing the risk of overfitting to the dataset (especially since overfitting is especially a concern at the 10th/90th tails) but the experienced developed may consider employing a hyperparameter optimization function. A weighting scheme is applied to the training dataset to ensure the model focuses most on correcting the large NBM errors. To evaluate model performance set PRODUCTION_MODE = False and define a holdout year for testing. When operationalizing the model set PRODUCTION_MODE = True to train on the entire dataset (note that this means an evaluation is not possible).
 
 ```
 Output Trained Probabilistic Models:
@@ -126,6 +126,17 @@ Output Trained Probabilistic Models:
 |    90th    |   1500z  |  Day 2 | 13z (f32) |  12z (f33) |
 ```
 
+**5. Evaluate the Probabilistic Models**
+```
+Python TdAI_Probabilistic_EVALUATION.py
+```
+_Only run this script if you held out a year for model evaluation._ You can choose from multiple different evaluation techniques as follows. Note that the script pools all forecast cycles together (e.g. the 50th percentile 03z Day 1, 03z Day 2, 15z Day 1, and 15z Day 2 forecast models are pooled together). 
+
+**do_scatter_plot:** Produces a scatter plot of NBM observed vs median (50th) predicted error at each ASOS site. Use this to ensure the performance of the 50th percentile models is similar to the deterministic models
+
+**do_ci_band_plot:** Checks if the percentage of samples within a confidence interval matches what is expected from a well calibrated distribution (e.g. do about 50% of the observed NBM-ASOS error fall within the model's 25th and 75th percentiles?
+
+**6. Operationalizing TdAI**
 
 ## Questions? 
 Ask in the TdAI discussion thread under the discussions tab of the repository or email me at seanmelanson12@gmail.com. I am more than happy to help in any way possible! 
