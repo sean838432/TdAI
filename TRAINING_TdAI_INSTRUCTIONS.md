@@ -1,10 +1,11 @@
 # How to Train TdAI on New ASOS Sites #
-The following is a comprehensive guide for training TdAI on your own ASOS sites. Before going into detail, here are a few general guidelines:
+The following is a comprehensive guide for training TdAI on your own ASOS sites. Before going into detail, here are a few general recommendations:
 
-1. I recommend choosing inland ASOS sites to train on. Those too close to the ocean will have a heavy marine influence that will result in less high end moist NBM errors attributed to under mixing which will decrease model performance. If in doubt, compare the percentage of samples at the ASOS with NBM error >= 5F with those further inland and make sure it isn't too drastic a difference. 
+1. Choose inland ASOS sites to train on. Those too close to the ocean will have a heavy marine influence that will result in less high end moist NBM errors attributed to under mixing which will decrease model performance. If in doubt, compare the percentage of samples at the ASOS with NBM error >= 5F with those further inland and make sure it isn't too drastic a difference. 
 2. The deterministic and probabilistic models should be trained on the 6 most recent years of data to ensure stability
-3. I recommend not including dates well outside your fire season (e.g. winter) in the training dataset. We want to make sure the models are primarily learning the typical fire weather patterns favorable for NBM Td to be too moist
-4. The model trains to correct NBM error at 21 UTC as this is the approximate time of the driest conditions, but this can be changed based on your time zone and local effects.
+3. Cloning the existing GitHub repository and modifying the code for your ASOS sites and CWA is the simplest approach to getting TdAI running for your area.
+4. Do not include dates well outside your fire season (e.g. winter) in the training dataset. We want to make sure the models are primarily learning the typical fire weather patterns favorable for NBM Td to be too moist
+5. The model trains to correct NBM error at 21 UTC as this is the approximate time of the driest conditions, but this can be changed based on your time zone and local effects.
 
 
 ## Step 1: Data Download
@@ -33,10 +34,10 @@ An extra script called **hrrr_vvel_soilw_mslma_hgt_download.py** was not used fo
 ## Step 2: Model Training & Evaluation
 
 **You must have the following at your desired ASOS sites to train the TdAI deterministic and probabilistic models:**
-1. A CSV file containing 01z NBM T, Td, Sky, wind speed, wind direction, and mixing height data
-2. A CSV file containing 13z NBM T, Td, Sky, wind speed, wind direction, and mixing height data
-3. A CSV file containing ASOS Td data
-4. A parquet file containing all HRRR sounding data
+1. A CSV file containing 01z initialized NBM T, Td, Sky, wind speed, wind direction, and mixing height data valid at 21 UTC
+2. A CSV file containing 13z initialized NBM T, Td, Sky, wind speed, wind direction, and mixing height data valid at 21 UTC
+3. A CSV file containing 21 UTC ASOS Td data
+4. A parquet file containing all HRRR sounding data valid at 21 UTC
 
 After all data is downloaded, navigate to \model_training_STATIC and follow these steps to train the deterministic and probabilistic TdAI models:
 ```
@@ -165,13 +166,25 @@ TdAI/
 
 **a. Set up ```TdAI_deterministic_operational.py``` for running the TdAI deterministic models operationally**
 
+This script will fetch the 01z/13z NBM station data and 00z/12z HRRR sounding data at each ASOS site, extract and compute the necessary input values for the deterministic TdAI models, make predictions using the input data and trained TdAI models, and save the models' predictions to individual csv files for the TdAI dashboard to access.
+
+Note: TdAI only makes a prediction if a fire weather filter (NBM Temperature >= 50 F, NBM RH <= 60%, and NBM Cloud Cover <= 60%) is passed (prevents the user from looking at noisy forecasts on non-fire weather days)
+
+Additionally, the script extracts the current NDFD Td forecast at the time it runs. This is later used by ```TdAI_deterministic_verification.py``` for a comparison of TdAI vs NDFD performance. It also uses a SHAP explainer to compute and save the 5 most important variables driving TdAI's deterministic predictions (for display to the forecaster). 
+
 **b. Set up ```TdAI_probabilistic_operational.py``` for running the TdAI probabilistic models operationally**
+
+This script will fetch the 01z/13z NBM station data and 00z/12z HRRR sounding data at each ASOS site, extract and compute the necessary input values for the probabilistic TdAI models, make predictions using the input data and trained TdAI models, and save the models' predictions to individual csv files for the TdAI dashboard to access.
+
+Note: TdAI only makes a prediction if a fire weather filter (NBM Temperature >= 50 F, NBM RH <= 60%, and NBM Cloud Cover <= 60%) is passed (prevents the user from looking at noisy forecasts on non-fire weather days)
 
 **c. Set up ```TdAI_deterministic_verification.py``` for verifying the TdAI deterministic model forecasts operationally**
 
+This script is designed to run after the valid time of TdAI's forecast (21 UTC) each day on a cron and pull the corresponding ASOS value for the purpose of verifying the 15z initialized, day 1 deterministic model's forecast (the one to have run last before the valid time) and the NDFD forecast pulled during the last TdAI run against the NBM. NBM-ASOS, TdAI-ASOS, TdAI Skill Score, and NDFD Skill Score are computed and saved to the deterministic output csv files for the TdAI dashboard to access.   
+
 **d. Customize ```TdAI_dashboard.html``` to your liking for viewing TdAI forecasts and verification**
 
-This script controls the TdAI dashboard webpage where you will display and view all TdAI forecasts and verification. It should be pretty functional right out of the box but a few tweaks may be necessary depending on how many ASOS sites you are training. ```ABOUT.txt``` and ```CHANGELOG.txt``` are plug-in text files showing how TdAI works and what changes have been made to the model design respectively.
+This script controls the TdAI dashboard webpage where you will display and view all TdAI forecasts and verification. It should be pretty functional right out of the box but a few tweaks may be necessary depending on how many ASOS sites you are training. ```ABOUT.txt``` and ```CHANGELOG.txt``` are plug-in text files showing how TdAI works and what changes have been made to the model design respectively. There is also a button for linking a forecast evaluation form. Please keep the current link if possible.
 
 **e. Set up GitHub Pages to host your dashboard webpage**
 
@@ -231,7 +244,35 @@ Follow the same instructions in step 6.g. but ensure that when setting up the jo
 
 **Note:** I recommend AGAINST implementing this until you are fully comfortable with running the TdAI automated workflow regularly
 
-Adding this feature will result in an automated retraining of the TdAI deterministic and probabilistic models every month (or at a frequency of your choosing) to bring the training dataset up to current. The retraining will operate on a sliding window meaning it will add data to the current date and remove data older than a defined number of years. This helps ensure that TdAI is trained on the most recent versions of the NBM. 
+```
+TdAI/
+├── .github/
+    └── workflows/
+        └── TdAI_auto_retrain.yml       
+├── model_training_AUTO/
+    ├── trained_models/
+    ├── trained_models_backup/
+    └── training_dataset/
+└── TdAI_auto_retrain.py
+```
+
+This feature automatically retrains the TdAI deterministic and probabilistic models every month (or at a frequency of your choosing) to bring the training dataset up to current. The retraining will operate on a sliding window meaning it will add data to the current date and remove data older than a defined number of years. This helps ensure that TdAI is trained on the most recent versions of the NBM. 
+
+**a. Set up ```TdAI_auto_retrain.py``` to automatically refresh the training dataset and retrain the deterministic and probabilistic TdAI models**
+
+This script will download ASOS, NBM, and HRRR data and use it to expand the training from the date of the newest sample in each training dataset to the current calendar day. It will then trim off any samples in the dataset older than a predefined number of years (this is the sliding window). The deterministic and probabilistic models are then retrained and will be used in the next run of TdAI. By default it takes the old models and saves them to trained_models_backup in case something goes wrong.
+
+When using this technique ```TdAI_deterministic_operational.py``` and ```TdAI_probabilistic_operational.py``` should pull the trained models from ```model_training_AUTO/trained_models```
+
+**b. Set up ```TdAI_auto_retrain.yml``` as the automated, sliding window retraining workflow**
+
+Modify this script as needed for updated filenames but it otherwise should be ready out of the box. Make sure you have a ```requirements.txt``` file in your repository containing all the Python libraries needed by ```TdAI_auto_retrain.py```
+
+You can test this workflow by going to GitHub Actions, selecting the workflow name on the right, and then clicking "Run Workflow"
+
+**c. Set up a job in Google Cloud Scheduler to initiate the automated, sliding window retraining workflow**
+
+Follow the same instructions in step 6.g. but ensure that when setting up the job the url option points to ```TdAI_auto_retrain.yml```
 
 
 ## Questions? 
