@@ -28,11 +28,11 @@ import pandas as pd
 
 
 ################################## INPUTS ####################################
-STATIONS = ['KCAR', 'KHUL', 'KMLT', 'KGNR', 'KBGR', 'KBHB', 'KFVE']
+STATIONS = ['KCON', 'KBTV'] #['KCAR', 'KHUL', 'KMLT', 'KGNR', 'KBGR', 'KBHB', 'KFVE']
 BUCKET_NAME = 'noaa-nbm-grib2-pds'
 PRODUCT = 'blend'
 SUBDIRECTORY = 'text'
-CYCLE_HOUR = '13'
+CYCLE_HOUR = '01'
 LOCAL_DIR = "/home/sean834/TdAI/data_download/NBM_data"
 RAW_DATA_DIR = os.path.join(LOCAL_DIR, "NBM_Raw_Data_Files")
 MAX_WORKERS = 16

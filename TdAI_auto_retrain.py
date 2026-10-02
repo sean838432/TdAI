@@ -1172,3 +1172,15 @@ def main():
 
 if __name__ == "__main__":
     main()
+    # Skip Python's normal interpreter shutdown (object destructors, GC,
+    # library atexit handlers) and exit immediately instead. By this point
+    # every output is already safely on disk (to_csv/joblib.dump both
+    # complete synchronously), so there's nothing left to lose - but a
+    # real run hit a native heap-corruption crash ('free(): invalid
+    # pointer', SIGABRT) during that normal shutdown, almost certainly
+    # from scikit-learn and LightGBM's OpenMP thread pools both tearing
+    # down in the same process. That crash happened AFTER this script's
+    # own work was complete, but it still made GitHub Actions treat the
+    # whole run as failed and skip the commit/push step, discarding a
+    # full multi-hour backfill+retrain that had actually succeeded.
+    os._exit(0)

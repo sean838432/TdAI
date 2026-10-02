@@ -36,7 +36,16 @@ jobs:
       - name: Execute TdAI Monthly Auto-Retrain Pipeline
         run: python TdAI_auto_retrain.py
 
+      # if: always() - a real run finished all its backfill/retrain work
+      # successfully, then crashed with a native-library SIGABRT during
+      # Python's interpreter shutdown (unrelated to this script's own
+      # logic - see the os._exit(0) fix in TdAI_auto_retrain.py). Because
+      # this step previously only ran on success, that crash caused
+      # GitHub Actions to skip it entirely, discarding a full multi-hour
+      # run's completed output. Whatever's on disk at this point should
+      # always be committed, regardless of how the previous step exited.
       - name: Commit and Push Updated Training Data & Models
+        if: always()
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"

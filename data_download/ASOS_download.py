@@ -14,12 +14,13 @@ import pandas as pd
 
 ################################## INPUTS ####################################
 # List of station identifiers (IEM searches all networks automatically)
-STATIONS = ['CAR', 'BGR', 'BHB', 'HUL', 'GNR', 'MLT', 'FVE']
+#STATIONS = ['CAR', 'BGR', 'BHB', 'HUL', 'GNR', 'MLT', 'FVE']
+STATIONS = ['PBG', 'MPV', 'IZG', 'LEW', 'LEB']
 DATA_VARS = ['dwpf', 'valid']
 BASE_URL = 'https://mesonet.agron.iastate.edu/cgi-bin/request/asos.py'
 
 # Date range for the bulk request
-START_YEAR = 2020
+START_YEAR = 2021
 END_YEAR = 2026
 
 # Seasonal Filtering (March 1 to Nov 15)
