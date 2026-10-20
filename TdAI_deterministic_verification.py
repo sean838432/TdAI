@@ -1,19 +1,15 @@
 """
-TdAI Deterministic Verification-Only Pipeline
+TdAI Deterministic Verification-Only Script
 
-Runs completely independently of forecast generation - no HRRR download, no
-NBM bulletin parsing, no NDFD fetch, no model inference, and no import from
-TdAI_deterministic_operational.py. It only catches up each station's output
-ledger on ASOS Ground Truth for any row whose valid_time has already
+Runs completely independently of forecast generation. It only fetches ASOS 
+verification data for any forecast whose valid_time has already
 passed, computing Raw NBM Error, Post TdAI Error, TdAI Skill Score, NDFD
-Error, and NDFD Skill Score for "Active" rows.
+Error, and NDFD Skill Score.
 
 Runs on its own schedule (~2130Z, shortly after the 21Z valid time) via
 TdAI_verify.yml, separately from the 0245Z/1445Z forecast-generating cron -
 so a day's verification happens right after it's actually observable,
-rather than waiting for the next forecast run (which could be several
-hours later, and after this refactor no longer does any verification of
-its own at all) to happen to touch that row.
+rather than waiting for the next forecast run.
 """
 
 import os
@@ -25,7 +21,9 @@ import numpy as np
 import pandas as pd
 
 ################################## INPUTS ####################################
-STATIONS = ['CAR', 'FVE', 'HUL', 'MLT', 'GNR', 'BGR']
+STATIONS = ['CAR', 'FVE', 'HUL', 'MLT', 'GNR', 'BGR', 
+            'CON', 'BML', 'WVL', 'IZG', 'LEW', 'LEB',
+            'BTV', 'SLK', 'RUT', 'VSF', 'PBG', 'MPV']
 
 # Mirrors TdAI_deterministic_operational.py's OUTPUT_HEADERS - kept as a
 # separate copy here (rather than imported) so this script has zero

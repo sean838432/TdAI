@@ -1,57 +1,34 @@
 """
 TdAI Monthly Auto-Retrain Pipeline
 
-Intended to run via an external cron (Google Cloud Scheduler hitting this
-repo's workflow_dispatch endpoint) on the 1st of each month. It:
+Runs via a cron job (TdAI_auto_retrain.yml) on the 1st of every month to:
 
     1) Reads each station/cycle's existing training dataset CSV to find the
        last calendar day already compiled.
     2) Walks forward one calendar day at a time (from that day through
-       yesterday), downloading that day's HRRR soundings (Herbie/AWS+Google),
-       NBM text bulletins (S3 archive), for ALL 6 stations at once per
-       network call, computing the engineered feature row for each
-       station/cycle, then discarding the raw HRRR/NBM data before moving to
-       the next day. ASOS ground truth is bulk-fetched once per station up
-       front (cheap, one request covers the whole backfill range).
+       yesterday), downloading all necessary HRRR, NBM, and ASOS training data for that day.
+       HRRR soundings (Herbie/AWS+Google) and NBM text bulletins (S3 archive)
+       are downloaded for ALL stations at once per network call, then the data
+       is parsed and necessary training features are engineered for each station/cycle
+       before the raw NBM and HRRR data is discarded. ASOS ground truth is bulk-fetched once 
+       per station up front (cheap, one request covers the whole backfill range).
     3) Appends any genuinely new rows (deduped against what's already on
-       disk) to model_training_AUTO/training_dataset/ - a SEPARATE sandbox
-       directory from the live model_training_STATIC/training_dataset/, seeded
+       disk) to model_training_AUTO/training_dataset/ - SEPARATE from 
+       model_training_STATIC/training_dataset/, seeded
        from it on first use (copied once, never overwritten afterward) so
-       every later run keeps building on the AUTO copy instead of the live
-       one. The live directory is never written to by this script.
+       every later run keeps building on the AUTO copy.
     4) Enforces a trailing SLIDING_WINDOW_YEARS-year (default 6) rolling
        window on that same AUTO dataset - e.g. once a run has backfilled
        through March 2027, everything from before March 2021 is dropped on
        that same run, so the dataset's span stays constant over time
        instead of growing forever.
-    5) Retrains all 24 deterministic AND all 24 probabilistic station/cycle
-       models on the resulting AUTO dataset and deploys them to
-       model_training_AUTO/trained_models/ - again a sandbox, never the
-       live model_training_STATIC/trained_models/ - after backing up the previous
+    5) Retrains all deterministic AND probabilistic station/cycle
+       models on the resulting AUTO rebuilt dataset and deploys them to
+       model_training_AUTO/trained_models/ after backing up the previous
        AUTO models to model_training_AUTO/trained_models_backup/, so a bad
-       retrain can be rolled back by restoring that folder. Promoting
-       AUTO's output into the live model_training_STATIC/ directories is a
-       separate, deliberate step left for a human to do (or a future
-       script) - this pipeline never touches production data or
-       production models on its own.
-
-This mirrors, feature-for-feature, model_training_STATIC/TdAI_v3.1_Training_Dataset_
-Compilation.py (compile step), model_training_STATIC/TdAI_v3.1_Deterministic_
-TRAINING.py, and model_training_STATIC/TdAI_v3.1_Probabilistic_TRAINING.py (both
-train steps, PRODUCTION_MODE=True) - see those files for the authoritative
-feature/training definitions this script is kept in sync with. Both model
-families train on the exact same TdAI_Training_Data_{station}_{cycle}.csv
-files - only the model architecture differs. Processing one day at a time
-(rather than pre-downloading the whole backfill range) is deliberate: a full
-month of raw HRRR+NBM held simultaneously would be close to a GitHub Actions
-runner's usable disk.
-
-NOTE ON NBM PARSING: this script deliberately reuses data_download/NBM_
-download.py's older `line.replace('-', ' -')` negative-number workaround
-instead of the operational script's corrected `_parse_nbm_token` tokenizer,
-so newly-appended rows stay consistent with the ~5,500 existing historical
-rows that were produced by the older method. If that's ever revisited, it
-should be revisited for both the historical archive and this script together.
+       retrain can be rolled back by restoring that folder. TdAI will then run
+       on the new models for the next month, and the next retrain will again back up
+       the current models before overwriting them with the new ones.
 """
 
 import os
@@ -65,7 +42,6 @@ import warnings
 import datetime
 from datetime import timedelta
 from concurrent.futures import ThreadPoolExecutor, as_completed
-
 import numpy as np
 import pandas as pd
 import requests
@@ -85,7 +61,6 @@ def seed_everything(seed=42):
     random.seed(seed)
     np.random.seed(seed)
     os.environ['PYTHONHASHSEED'] = str(seed)
-
 
 seed_everything(42)
 
@@ -115,7 +90,9 @@ TEST_END_DATE = '2026-06-15'
 # runs behave identically. Safe to re-run as many times as you want.
 SETUP_WORKFLOW_TEST = False
 
-STATIONS = ['CAR', 'FVE', 'HUL', 'MLT', 'GNR', 'BGR']
+STATIONS = ['CAR', 'FVE', 'HUL', 'MLT', 'GNR', 'BGR', 
+            'CON', 'BML', 'WVL', 'IZG', 'LEW', 'LEB',
+            'BTV', 'SLK', 'RUT', 'VSF', 'PBG', 'MPV']
 
 STATION_COORDS = {
     'CAR': (46.870490, -68.017221),
@@ -124,6 +101,18 @@ STATION_COORDS = {
     'MLT': (45.647771, -68.692475),
     'GNR': (45.462979, -69.554546),
     'BGR': (44.8074, -68.8281),
+    'CON': (43.204911, -71.502588),
+    'BML': (44.576041, -71.178194),
+    'WVL': (44.530114, -69.675275),
+    'IZG': (43.989920, -70.950038),
+    'LEW': (44.044498, -70.285270),
+    'LEB': (43.627095, -72.305399),
+    'BTV': (44.468248, -73.149911),
+    'SLK': (44.392799, -74.202854),
+    'RUT': (43.530033, -72.951624),
+    'VSF': (43.342143, -72.521297),
+    'PBG': (44.639226, -73.463124),
+    'MPV': (44.205158, -72.565504),
 }
 
 # Matches model_training_STATIC/TdAI_v3.1_Training_Dataset_Compilation.py's CYCLES
@@ -496,6 +485,20 @@ def nbm_rows_by_valid_time(parsed):
 #                                                                  #
 ####################################################################
 
+def in_training_season(check_date):
+    """True for March 1 - November 15 inclusive - the only window TdAI's
+    training data has ever covered, and the same window outside of which
+    the operational scripts pause (their is_winter_pause()). Without this
+    check, the Dec/Jan/Feb/Mar 1st retrain runs would backfill winter rows
+    into a dataset (and models) that have never contained any."""
+    month, day = check_date.month, check_date.day
+    if month in (12, 1, 2):
+        return False
+    if month == 11 and day >= 16:
+        return False
+    return True
+
+
 def get_next_needed_init_day(station, cycle_name, offset, training_dataset_path):
     """The next init day this station/cycle still needs, based on the
     latest valid_time already saved (valid_time = init_day + offset)."""
@@ -663,12 +666,23 @@ def run_backfill(base_path):
     while current_day <= end_date:
         day_num += 1
         run_date = pd.Timestamp(current_day)
-        print(f"\n📅 [{day_num}/{total_days}] Init day {current_day}...")
 
+        # A cycle is only needed if some station still needs this init day
+        # AND its target day (init day + offset) is inside the training
+        # season - Day2 cycles initialized on Nov 15 target Nov 16, so the
+        # check is on the target day, not the init day.
         needed_cycles = [
             cycle for cycle in CYCLES
-            if any(current_day >= next_needed[(s, cycle['name'])] for s in STATIONS if next_needed[(s, cycle['name'])] is not None)
+            if in_training_season(current_day + timedelta(days=cycle['target_day_offset']))
+            and any(current_day >= next_needed[(s, cycle['name'])] for s in STATIONS if next_needed[(s, cycle['name'])] is not None)
         ]
+
+        if not needed_cycles:
+            print(f"⏭️ [{day_num}/{total_days}] Init day {current_day}: outside the Mar 1 - Nov 15 training season (or already compiled). Skipping.")
+            current_day += timedelta(days=1)
+            continue
+
+        print(f"\n📅 [{day_num}/{total_days}] Init day {current_day}...")
 
         # The 4 HRRR cycles are independent GRIB2 fetches (separate Herbie
         # objects, separate local cache files), so fetching them concurrently
@@ -687,14 +701,11 @@ def run_backfill(base_path):
                 hrrr_cache[futures[future]] = future.result()
 
         nbm_cache = {}
-        for cycle_hour in ('13', '01'):
-            relevant_cycles = [c for c in CYCLES if c['nbm_cycle_hour'] == cycle_hour]
-            if any(current_day >= next_needed[(s, c['name'])] for s in STATIONS for c in relevant_cycles
-                   if next_needed[(s, c['name'])] is not None):
-                nbm_cache[cycle_hour] = download_nbm_day(current_day.strftime('%Y%m%d'), cycle_hour, STATIONS, s3_client)
+        for cycle_hour in sorted({c['nbm_cycle_hour'] for c in needed_cycles}):
+            nbm_cache[cycle_hour] = download_nbm_day(current_day.strftime('%Y%m%d'), cycle_hour, STATIONS, s3_client)
 
         day_rows = {(station, cycle['name']): [] for station in STATIONS for cycle in CYCLES}
-        for cycle in CYCLES:
+        for cycle in needed_cycles:
             c_name = cycle['name']
             hrrr_result = hrrr_cache.get(c_name, {})
             nbm_result = nbm_cache.get(cycle['nbm_cycle_hour'], {})

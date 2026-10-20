@@ -1,5 +1,10 @@
 """
-TdAI Operational Ingestion and Prediction Pipeline
+TdAI Deterministic Forecast Operational Script
+
+TdAI deterministic operational run on live NBM/HRRR data. 
+This script is run on a schedule (via TdAI_cron.yml) 
+to produce the TdAI deterministic forecast output for each station, saved in CSVs, 
+which are then consumed by the TdAI dashboard.
 
 ASOS verification (Ground Truth backfill, error/skill scoring) is handled
 entirely by the separate TdAI_deterministic_verification.py, run on its own
@@ -26,9 +31,7 @@ def seed_everything(seed=42):
     print(f"✅ Random state locked at seed: {seed}")
 
 # -------------------------------------------------------------------------
-# 🗺️ STATION CONFIG - lat/lon sourced from data_download/hrrr_soundings_download.py
-# so operational point-extraction matches the exact points training data was
-# built from.
+# 🗺️ STATION COORDINATES
 # -------------------------------------------------------------------------
 STATIONS = {
     'CAR': (46.870490, -68.017221),
@@ -37,6 +40,18 @@ STATIONS = {
     'MLT': (45.647771, -68.692475),
     'GNR': (45.462979, -69.554546),
     'BGR': (44.807400, -68.828100),
+    'CON': (43.204911, -71.502588),
+    'BML': (44.576041, -71.178194),
+    'WVL': (44.530114, -69.675275),
+    'IZG': (43.989920, -70.950038),
+    'LEW': (44.044498, -70.285270),
+    'LEB': (43.627095, -72.305399),
+    'BTV': (44.468248, -73.149911),
+    'SLK': (44.392799, -74.202854),
+    'RUT': (43.530033, -72.951624),
+    'VSF': (43.342143, -72.521297),
+    'PBG': (44.639226, -73.463124),
+    'MPV': (44.205158, -72.565504),
 }
 
 # Static api.weather.gov gridpoint identifiers (NDFD's practical JSON front
@@ -50,6 +65,18 @@ NDFD_GRIDPOINTS = {
     'MLT': ('CAR', 61, 114),
     'GNR': ('CAR', 35, 100),
     'BGR': ('CAR', 64, 74),
+    'CON': ('GYX', 35, 30),
+    'BML': ('GYX', 34, 94),
+    'WVL': ('GYX', 84, 101),
+    'IZG': ('GYX', 47, 69),
+    'LEW': ('GYX', 68, 75),
+    'LEB': ('GYX', 5, 44),
+    'BTV': ('BTV', 91, 56),
+    'SLK': ('BTV', 57, 47),
+    'RUT': ('BTV', 104, 14),
+    'VSF': ('BTV', 120, 8),
+    'PBG': ('BTV', 79, 63),
+    'MPV': ('BTV', 112, 47),
 }
 
 OUTPUT_HEADERS = [
@@ -355,7 +382,11 @@ def build_nbm_df(bulletin_text, station_id, successful_date_str):
 
     nbm_df['valid_time'] = pd.to_datetime(valid_times)
     if 'NBM Wind Direction (tens deg)' in nbm_df.columns:
-        nbm_df['NBM Wind Direction (deg)'] = nbm_df['NBM Wind Direction (tens deg)'] * 10
+        # Deliberately NOT multiplied by 10: despite the "(deg)" name, every
+        # training dataset (NBM_download.py and TdAI_auto_retrain.py both store
+        # the raw WDR value) holds wind direction in TENS of degrees (0-36).
+        # The name is baked into every model's feature schema, so it stays.
+        nbm_df['NBM Wind Direction (deg)'] = nbm_df['NBM Wind Direction (tens deg)']
     if 'NBM Mixing Height (100s ft)' in nbm_df.columns:
         nbm_df['NBM Mixing Height (100s ft AGL)'] = nbm_df['NBM Mixing Height (100s ft)']
 

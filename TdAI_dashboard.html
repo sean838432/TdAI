@@ -25,9 +25,21 @@
       </div>
 
       <div class="relative flex flex-col items-center md:items-end">
-        <a href="https://forms.gle/x2Wh4TcTCkkeBGbt6" target="_blank" class="inline-flex items-center gap-2 px-4 py-2.5 bg-indigo-600/10 hover:bg-indigo-600 text-indigo-400 hover:text-white font-bold text-sm rounded-xl border border-indigo-500/20 shadow-sm transition-all duration-150">
-          📋 TdAI Forecaster Survey
-        </a>
+        <div class="flex items-center gap-2">
+          <div class="relative">
+            <button id="wfo-toggle-btn" onclick="toggleWfoMenu()" aria-haspopup="listbox" aria-expanded="false" class="inline-flex items-center gap-2 px-3.5 py-2.5 bg-slate-800/60 hover:bg-slate-800 text-slate-300 hover:text-white font-bold text-sm rounded-xl border border-slate-600/50 shadow-sm transition-all duration-150">
+              <span class="text-[11px] uppercase tracking-widest font-black text-slate-500">WFO</span>
+              <span id="wfo-current-label" class="text-emerald-400 font-black">CAR</span>
+              <span class="text-slate-500 text-xs">▾</span>
+            </button>
+            <ul id="wfo-menu" role="listbox" class="hidden absolute left-0 top-full mt-1.5 w-28 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl py-1 z-50 text-left">
+              <!-- Populated from WFO_ORDER by renderWfoMenu() -->
+            </ul>
+          </div>
+          <a href="https://forms.gle/x2Wh4TcTCkkeBGbt6" target="_blank" class="inline-flex items-center gap-2 px-4 py-2.5 bg-indigo-600/10 hover:bg-indigo-600 text-indigo-400 hover:text-white font-bold text-sm rounded-xl border border-indigo-500/20 shadow-sm transition-all duration-150">
+            📋 TdAI Forecaster Survey
+          </a>
+        </div>
         <p class="text-base text-slate-300 font-bold mt-1 text-center md:text-right">
           TdAI v3.2
           <button id="changelog-toggle-btn" onclick="toggleChangelog()" class="text-indigo-400 hover:text-indigo-300 font-bold underline underline-offset-2 ml-1">Release Notes</button>
@@ -79,15 +91,38 @@
   </footer>
 
   <script>
-    // Left-to-right, top-to-bottom card order
-    const STATION_ORDER = ['FVE', 'CAR', 'HUL', 'MLT', 'GNR', 'BGR'];
+    // Each WFO's stations, in left-to-right, top-to-bottom card order
+    const STATIONS_BY_WFO = {
+      'CAR': ['FVE', 'CAR', 'HUL', 'MLT', 'GNR', 'BGR'],
+      'GYX': ['BML', 'WVL', 'LEW', 'IZG', 'LEB', 'CON'],
+      'BTV': ['PBG', 'BTV', 'SLK', 'MPV', 'RUT', 'VSF'],
+      'ALY': [],  // TODO: ALY station list not yet defined
+      'BOX': ['LWM', 'ORE', 'ORH', 'BDL', 'TAN', 'IJD'],
+    };
+    const WFO_ORDER = ['CAR', 'GYX', 'BTV', 'ALY', 'BOX'];
+    const DEFAULT_WFO = 'CAR';
+
+    // Remembers the viewer's last-picked WFO in this browser only
+    function loadSavedWfo() {
+      try {
+        const saved = localStorage.getItem('tdai-selected-wfo');
+        return STATIONS_BY_WFO[saved] ? saved : DEFAULT_WFO;
+      } catch (e) {
+        return DEFAULT_WFO;
+      }
+    }
+
+    let currentWfo = loadSavedWfo();
+    let STATION_ORDER = STATIONS_BY_WFO[currentWfo];
 
     let stationDatasets = {};   // station -> tabDataMap (or null if that station has no usable data)
     let currentTabActive = "day1";
     let changelogLoaded = false;
     let aboutLoaded = false;
+    let initialLoadDone = false;
 
     window.addEventListener('DOMContentLoaded', () => {
+      renderWfoMenu();
       renderStationCards();
       fetchDashboardDataFromCSV();
     });
@@ -95,6 +130,13 @@
     document.addEventListener('click', (e) => {
       const changelogDropdown = document.getElementById('changelog-dropdown');
       const aboutDropdown = document.getElementById('about-dropdown');
+      const wfoMenu = document.getElementById('wfo-menu');
+
+      if (!wfoMenu.classList.contains('hidden')
+          && !wfoMenu.contains(e.target)
+          && !document.getElementById('wfo-toggle-btn').contains(e.target)) {
+        closeWfoMenu();
+      }
 
       if (!changelogDropdown.classList.contains('hidden')
           && !changelogDropdown.contains(e.target)
@@ -152,6 +194,46 @@
         panel.style.marginBottom = '0.375rem';
       }
     }, true);
+
+    // -------------------------------------------------------------------
+    // WFO SELECTOR - swaps which CWA's 6 station cards are shown. Each
+    // WFO's CSVs are only fetched the first time it's selected.
+    // -------------------------------------------------------------------
+    function renderWfoMenu() {
+      document.getElementById('wfo-current-label').textContent = currentWfo;
+      document.getElementById('wfo-menu').innerHTML = WFO_ORDER.map(wfo => {
+        const isActive = wfo === currentWfo;
+        const cls = isActive
+          ? "w-full text-left px-3.5 py-1.5 text-sm font-black text-emerald-400 bg-slate-800/70"
+          : "w-full text-left px-3.5 py-1.5 text-sm font-bold text-slate-300 hover:bg-slate-800 hover:text-white";
+        return `<li><button role="option" aria-selected="${isActive}" onclick="selectWfo('${wfo}')" class="${cls}">${wfo}</button></li>`;
+      }).join('');
+    }
+
+    function toggleWfoMenu() {
+      const menu = document.getElementById('wfo-menu');
+      const willShow = menu.classList.contains('hidden');
+      menu.classList.toggle('hidden');
+      document.getElementById('wfo-toggle-btn').setAttribute('aria-expanded', String(willShow));
+    }
+
+    function closeWfoMenu() {
+      document.getElementById('wfo-menu').classList.add('hidden');
+      document.getElementById('wfo-toggle-btn').setAttribute('aria-expanded', 'false');
+    }
+
+    function selectWfo(wfo) {
+      closeWfoMenu();
+      if (wfo === currentWfo) return;
+
+      currentWfo = wfo;
+      STATION_ORDER = STATIONS_BY_WFO[wfo];
+      try { localStorage.setItem('tdai-selected-wfo', wfo); } catch (e) {}
+
+      renderWfoMenu();
+      renderStationCards();
+      fetchDashboardDataFromCSV();
+    }
 
     function toggleChangelog() {
       const dropdown = document.getElementById('changelog-dropdown');
@@ -474,6 +556,13 @@
 
     function renderStationCards() {
       const container = document.getElementById('station-cards-container');
+      if (!STATION_ORDER.length) {
+        container.innerHTML = `
+          <div class="col-span-full py-12 text-center text-slate-400 font-bold italic text-sm bg-slate-900/20 border border-slate-800/60 rounded-2xl">
+            No TdAI stations configured for WFO ${currentWfo} yet.
+          </div>`;
+        return;
+      }
       container.innerHTML = STATION_ORDER.map(station => buildStationCardHTML(station)).join('');
     }
 
@@ -483,7 +572,11 @@
     // station doesn't break the rest of the dashboard.
     // -------------------------------------------------------------------
     function fetchDashboardDataFromCSV() {
-      const fetchPromises = STATION_ORDER.map(station => {
+      const wfoAtFetch = currentWfo;
+      // Skip stations already fetched (e.g. switching back to a WFO seen earlier)
+      const toFetch = STATION_ORDER.filter(station => !(station in stationDatasets));
+
+      const fetchPromises = toFetch.map(station => {
         const detPath = `./deterministic_output/TdAI_deterministic_operational_${station}.csv`;
         const probPath = `./probabilistic_output/TdAI_probabilistic_operational_${station}.csv`;
 
@@ -503,8 +596,19 @@
       });
 
       Promise.allSettled(fetchPromises).then(() => {
+        // The viewer switched WFOs again before this batch finished - the
+        // newer selection's own fetch will render its cards.
+        if (wfoAtFetch !== currentWfo) return;
+
+        const isInitialLoad = !initialLoadDone;
+        initialLoadDone = true;
+
+        // Only the first page load treats "no data" as a pipeline failure.
+        // A WFO picked later that has no output yet (e.g. a CWA whose
+        // stations aren't running operationally) just shows its cards'
+        // "No Data Available" state instead of an alert.
         const anyStationLoaded = STATION_ORDER.some(station => stationDatasets[station]);
-        if (!anyStationLoaded) {
+        if (isInitialLoad && currentWfo === DEFAULT_WFO && !anyStationLoaded) {
           handleCriticalError("Operational Failure: Could not synchronize with database stream objects for any station. Check repository file logs.");
           return;
         }
