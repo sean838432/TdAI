@@ -2,9 +2,9 @@
 The following is a comprehensive guide for training TdAI on your own ASOS sites. Before going into detail, here are a few general recommendations:
 
 1. Choose inland ASOS sites to train on. Those too close to the ocean will have a heavy marine influence that will result in less high end moist NBM errors attributed to under mixing which will decrease model performance. If in doubt, compare the percentage of samples at the ASOS with NBM error >= 5F with those further inland and make sure it isn't too drastic a difference. 
-2. The deterministic and probabilistic models should be trained on the 6 most recent years of data to ensure stability
+2. The deterministic and probabilistic models should be trained on the 6 most recent years of data to ensure stability.
 3. Cloning the existing GitHub repository and modifying the code for your ASOS sites and CWA is the simplest approach to getting TdAI running for your area.
-4. Do not include dates well outside your fire season (e.g. winter) in the training dataset. We want to make sure the models are primarily learning the typical fire weather patterns favorable for NBM Td to be too moist
+4. Do not include dates well outside your fire season (e.g. winter) in the training dataset. We want to make sure the models are primarily learning the typical fire weather patterns favorable for NBM Td to be too moist.
 5. The model trains to correct NBM error at 21 UTC as this is the approximate time of the driest conditions, but this can be changed based on your time zone and local effects.
 
 
@@ -21,13 +21,13 @@ TdAI/
     └── sounding_compilation_parquet.py
 ```
 
-**ASOS_download.py**: Python script for downloading ASOS data. It will output a csv file combining all ASOS Td observations within a specified date range 
+**ASOS_download.py**: Python script for downloading ASOS data. It will output a csv file combining all ASOS Td observations within a specified date range. 
 
-**NBM_download.py**: Python script for downloading NBM T, Td, sky, wind speed, wind direction, and mixing height. It will output a csv file combining all NBM day 1 and day 2 forecasts at 15, 18, and 21 UTC for a specified init time (should be 01z and 13z to align with the NBM forecasters edit)
+**NBM_download.py**: Python script for downloading NBM T, Td, sky, wind speed, wind direction, and mixing height. It will output a csv file combining all NBM day 1 and day 2 forecasts at 15, 18, and 21 UTC for a specified init time (should be 01z and 13z to align with the NBM forecasters edit).
 
 **hrrr_soundings_download.py**: Python script for downloading HRRR soundings at the nearest grid point to the ASOS site for 4 cycles (combinations of model initialization time and forecast hour). Individual csv files will be saved for each forecast.
 
-Finally, use **sounding_compilation_parquet.py** to combine the individual HRRR csv files into one lightweight parquet file which the training script will expect
+Finally, use **sounding_compilation_parquet.py** to combine the individual HRRR csv files into one lightweight parquet file which the training script will expect.
 
 An extra script called **hrrr_vvel_soilw_mslma_hgt_download.py** was not used for the operational TdAI but can be used to add HRRR vertical velocity, MSLP, and soil moisture to the training dataset. Adding these to the training dataset for 6 ASOS sites in the CAR CWA offered minimal performance improvement but it may be worth testing for your area.
 
@@ -87,8 +87,17 @@ Output Trained Deterministic Models:
 Python TdAI_Deterministic_EVALUATION.py
 ```
 
-_Only run this script if you held out a year for model evaluation._ You can choose from multiple different evaluation techniques do_top25 will show model performance on the top 25 largest NBM moist errors at each site from the evaluation year, do_scatter_plot will show a scatter plot of observed NBM error vs. model predicted NBM error at each site (which includes a coefficient of determination and skill score calculation), 
-do_feature_importance will produce a feature importance plot showing the most importance variables contributing to the models' predictions at each site, and do_bust_threshold_count will compute a table counting the number of samples above a certain BUST_EXCEEDANCE_THRESHOLD_F value. Evaluation results from all TdAI models will be pooled together.
+_Only run this script if you held out a year for model evaluation._ You can choose from multiple different evaluation techniques as follows. Note that the script pools all forecast cycles together (e.g. the 03z Day 1, 03z Day 2, 15z Day 1, and 15z Day 2 deterministic forecast models are pooled together). 
+
+**do_top25:** Produces a plot of model performance on the top 25 largest NBM moist errors at each site from the evaluation year. 
+
+**do_scatter_plot:** Produces a scatter plot of observed NBM error vs. model predicted NBM error at each site (which includes a coefficient of determination and skill score calculation), 
+
+**do_bust_size_bar_chart:** Produces a bar chart showing the TdAI predicted error magnitude scales with actual NBM error at each site. Simpler to interpret than the scatter plots.
+
+**do_feature_importance:** Produces a feature importance plot showing the most importance variables contributing to the models' predictions at each site.
+
+**do_bust_threshold_count:** Produces a table counting the number of samples above a certain BUST_EXCEEDANCE_THRESHOLD_F value. Evaluation results from all TdAI models will be pooled together.
 
 **d. Train the Probabilistic Models**
 
@@ -133,13 +142,13 @@ Python TdAI_Probabilistic_EVALUATION.py
 ```
 _Only run this script if you held out a year for model evaluation._ You can choose from multiple different evaluation techniques as follows. Note that the script pools all forecast cycles together (e.g. the 50th percentile 03z Day 1, 03z Day 2, 15z Day 1, and 15z Day 2 forecast models are pooled together). 
 
-**do_scatter_plot:** Produces a scatter plot of NBM observed vs median (50th) predicted error at each ASOS site. Use this to ensure the performance of the 50th percentile models is similar to the deterministic models
+**do_scatter_plot:** Produces a scatter plot of NBM observed vs median (50th) predicted error at each ASOS site. Use this to ensure the performance of the 50th percentile models is similar to the deterministic models.
 
 **do_ci_band_plot:** Produces a confidence interval band plot for each station. This shows where each individual observed NBM error sample fell in the probabilistic distribution over the evaluation year.
 
-**do_gated_coverage_check:** Checks if the percentage of samples within the 50% and 80% confidence interval matches what is expected from a well calibrated distribution (e.g. do about 50% of the observed NBM-ASOS error fall within the model's 25th and 75th percentiles?) if a fire weather model run filter (to prevent the model running on non-fire weather days) is applied 
+**do_gated_coverage_check:** Checks if the percentage of samples within the 50% and 80% confidence interval matches what is expected from a well calibrated distribution (e.g. do about 50% of the observed NBM-ASOS error fall within the model's 25th and 75th percentiles?) if a fire weather model run filter (to prevent the model running on non-fire weather days) is applied.
 
-**do_ungated_coverage_check:** Checks if the percentage of samples within the 50% and 80% confidence interval matches what is expected from a well calibrated distribution (e.g. do about 50% of the observed NBM-ASOS error fall within the model's 25th and 75th percentiles?) on the raw, unfiltered dataset (truest calibration check)
+**do_ungated_coverage_check:** Checks if the percentage of samples within the 50% and 80% confidence interval matches what is expected from a well calibrated distribution (e.g. do about 50% of the observed NBM-ASOS error fall within the model's 25th and 75th percentiles?) on the raw, unfiltered dataset (truest calibration check).
 
 **do_ungated_coverage_check:** Creates a probability integral transform (PIT) histogram for assessing calibration of the entire probabilistic TdAI forecast distribution (highly recommend looking at this to assess skew). The PIT histogram should appear left skewed (skewed towards predicting higher NBM errors). This is an intentional result of the weighting scheme and provides more protection against extreme errors. This option also produces a Continuous Ranked Probability Score (CRPS) table, measuring both the calibration and sharpness of the TdAI forecast distribution.
 
@@ -168,7 +177,7 @@ TdAI/
 
 This script will fetch the 01z/13z NBM station data and 00z/12z HRRR sounding data at each ASOS site, extract and compute the necessary input values for the deterministic TdAI models, make predictions using the input data and trained TdAI models, and save the models' predictions to individual csv files for the TdAI dashboard to access.
 
-Note: TdAI only makes a prediction if a fire weather filter (NBM Temperature >= 50 F, NBM RH <= 60%, and NBM Cloud Cover <= 60%) is passed (prevents the user from looking at noisy forecasts on non-fire weather days)
+Note: TdAI only makes a prediction if a fire weather filter (NBM Temperature >= 50 F, NBM RH <= 60%, and NBM Cloud Cover <= 60%) is passed (prevents the user from looking at noisy forecasts on non-fire weather days).
 
 Additionally, the script extracts the current NDFD Td forecast at the time it runs. This is later used by ```TdAI_deterministic_verification.py``` for a comparison of TdAI vs NDFD performance. It also uses a SHAP explainer to compute and save the 5 most important variables driving TdAI's deterministic predictions (for display to the forecaster). 
 
@@ -176,7 +185,7 @@ Additionally, the script extracts the current NDFD Td forecast at the time it ru
 
 This script will fetch the 01z/13z NBM station data and 00z/12z HRRR sounding data at each ASOS site, extract and compute the necessary input values for the probabilistic TdAI models, make predictions using the input data and trained TdAI models, and save the models' predictions to individual csv files for the TdAI dashboard to access.
 
-Note: TdAI only makes a prediction if a fire weather filter (NBM Temperature >= 50 F, NBM RH <= 60%, and NBM Cloud Cover <= 60%) is passed (prevents the user from looking at noisy forecasts on non-fire weather days)
+Note: TdAI only makes a prediction if a fire weather filter (NBM Temperature >= 50 F, NBM RH <= 60%, and NBM Cloud Cover <= 60%) is passed (prevents the user from looking at noisy forecasts on non-fire weather days).
 
 **c. Set up ```TdAI_deterministic_verification.py``` for verifying the TdAI deterministic model forecasts operationally**
 
@@ -192,7 +201,7 @@ Navigate to "Repository Settings" -> "Pages" and ensure that under "Build and De
 
 **f. Set up ```TdAI_cron.yml``` as the TdAI forecast automated workflow**
 
-Modify this script as needed for updated filenames but it otherwise should be ready out of the box. Make sure you have a ```requirements.txt``` file in your repository containing all the Python libraries needed by ```TdAI_deterministic_operational.py``` ```TdAI_probabilistic_operational.py```
+Modify this script as needed for updated filenames but it otherwise should be ready out of the box. Make sure you have a ```requirements.txt``` file in your repository containing all the Python libraries needed by ```TdAI_deterministic_operational.py``` ```TdAI_probabilistic_operational.py```.
 
 You can test this workflow by going to GitHub Actions, selecting the workflow name on the right, and then clicking "Run Workflow".
 
@@ -232,17 +241,17 @@ When done you can test the job by clicking the 3 dots under the actions column o
 
 **h. Set up ```TdAI_verify.yml``` as the TdAI forecast verification automated workflow**
 
-Modify this script as needed for updated filenames but it otherwise should be ready out of the box. Make sure you have a ```requirements.txt``` file in your repository containing all the Python libraries needed by ```TdAI_deterministic_verification.py```
+Modify this script as needed for updated filenames but it otherwise should be ready out of the box. Make sure you have a ```requirements.txt``` file in your repository containing all the Python libraries needed by ```TdAI_deterministic_verification.py```.
 
-You can test this workflow by going to GitHub Actions, selecting the workflow name on the right, and then clicking "Run Workflow"
+You can test this workflow by going to GitHub Actions, selecting the workflow name on the right, and then clicking "Run Workflow".
 
 **i. Set up a job in Google Cloud Scheduler to initiate the forecast verification automated workflow**
 
-Follow the same instructions in step 6.g. but ensure that when setting up the job the url option points to ```TdAI_verify.yml```
+Follow the same instructions in step 6.g. but ensure that when setting up the job the url option points to ```TdAI_verify.yml```.
 
 ## STEP 4. Implementing an Automated, Sliding Window Retraining Workflow (Optional Advanced Feature)
 
-**Note:** I recommend AGAINST implementing this until you are fully comfortable with running the TdAI automated workflow regularly
+**Note:** I recommend AGAINST implementing this until you are fully comfortable with running the TdAI automated workflow regularly.
 
 ```
 TdAI/
@@ -262,17 +271,17 @@ This feature automatically retrains the TdAI deterministic and probabilistic mod
 
 This script will download ASOS, NBM, and HRRR data and use it to expand the training from the date of the newest sample in each training dataset to the current calendar day. It will then trim off any samples in the dataset older than a predefined number of years (this is the sliding window). The deterministic and probabilistic models are then retrained and will be used in the next run of TdAI. By default it takes the old models and saves them to trained_models_backup in case something goes wrong.
 
-When using this technique ```TdAI_deterministic_operational.py``` and ```TdAI_probabilistic_operational.py``` should pull the trained models from ```model_training_AUTO/trained_models```
+When using this technique ```TdAI_deterministic_operational.py``` and ```TdAI_probabilistic_operational.py``` should pull the trained models from ```model_training_AUTO/trained_models```.
 
 **b. Set up ```TdAI_auto_retrain.yml``` as the automated, sliding window retraining workflow**
 
-Modify this script as needed for updated filenames but it otherwise should be ready out of the box. Make sure you have a ```requirements.txt``` file in your repository containing all the Python libraries needed by ```TdAI_auto_retrain.py```
+Modify this script as needed for updated filenames but it otherwise should be ready out of the box. Make sure you have a ```requirements.txt``` file in your repository containing all the Python libraries needed by ```TdAI_auto_retrain.py```.
 
-You can test this workflow by going to GitHub Actions, selecting the workflow name on the right, and then clicking "Run Workflow"
+You can test this workflow by going to GitHub Actions, selecting the workflow name on the right, and then clicking "Run Workflow".
 
 **c. Set up a job in Google Cloud Scheduler to initiate the automated, sliding window retraining workflow**
 
-Follow the same instructions in step 6.g. but ensure that when setting up the job the url option points to ```TdAI_auto_retrain.yml```
+Follow the same instructions in step 6.g. but ensure that when setting up the job the url option points to ```TdAI_auto_retrain.yml```.
 
 
 ## Questions? 
