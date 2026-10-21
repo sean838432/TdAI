@@ -1,3 +1,4 @@
 valid_time,TdAI Run Time (UTC),TdAI Status,NBM Temperature (F),NBM Dewpoint (F),NBM Max Wind Gust 15-21Z (kts),NDFD Dewpoint (F),TdAI Predicted Bias (F),TdAI Corrected Dewpoint (F),TdAI Top Drivers,ASOS Ground Truth Dewpoint (F),Raw NBM Error (F),Post TdAI Error (F),TdAI Skill Score (%),NDFD Error (F),NDFD Skill Score (%)
-2026-10-20 21:00:00,2026-10-20 20:09 UTC,Active,51,31,11.0,32.0,5.0,26.0,rh_850: -2.17F | rh_875: -1.51F | 1000mb-700mb Lapse Rate (C/km): +1.21F | rh_725: -0.41F | rh_900: -0.27F,25.0,6.0,1.0,83.3,7.0,-16.7
-2026-10-21 21:00:00,2026-10-20 20:09 UTC,Active,54,32,4.0,32.0,4.3,27.7,rh_850: -1.41F | rh_875: -0.73F | NBM Mixing Height (100s ft AGL): +0.63F | rh_825: -0.62F | 1000mb-700mb Lapse Rate (C/km): +0.50F,,,,,,
+2026-10-20 21:00:00,2026-10-20 20:09 UTC,Active,51.0,31.0,11.0,32.0,5.0,26.0,rh_850: -2.17F | rh_875: -1.51F | 1000mb-700mb Lapse Rate (C/km): +1.21F | rh_725: -0.41F | rh_900: -0.27F,25.0,6.0,1.0,83.3,7.0,-16.7
+2026-10-21 21:00:00,2026-10-21 02:48 UTC,Active,54.0,31.0,5.0,32.0,5.4,25.6,rh_850: -1.73F | rh_825: -0.82F | NBM Wind Speed (kts): -0.62F | rh_875: -0.51F | 1000mb-700mb Lapse Rate (C/km): +0.49F,,,,,,
+2026-10-22 21:00:00,2026-10-21 02:48 UTC,"T < 50 F, RH > 60 %",,,,,0.0,,,,,,,,

@@ -1,3 +1,4 @@
 valid_time,TdAI Run Time (UTC),TdAI Status,NBM Temperature (F),NBM Dewpoint (F),NBM Max Wind Gust 15-21Z (kts),NDFD Dewpoint (F),TdAI Predicted Bias (F),TdAI Corrected Dewpoint (F),TdAI Top Drivers,ASOS Ground Truth Dewpoint (F),Raw NBM Error (F),Post TdAI Error (F),TdAI Skill Score (%),NDFD Error (F),NDFD Skill Score (%)
 2026-10-20 21:00:00,2026-10-20 20:08 UTC,Active,60,40,10.0,35.0,4.4,35.6,Time of Year: -0.77F | rh_800: -0.53F | rh_850: -0.49F | NBM RH (%): +0.46F | hrrr_lpw (mm): -0.44F,30.0,10.0,5.6,44.0,5.0,50.0
-2026-10-21 21:00:00,2026-10-20 20:08 UTC,Active,54,36,11.0,35.0,0.3,35.7,NBM RH (%): +0.50F | NBM Cloud Cover (%): +0.46F | hrrr_lpw (mm): +0.37F | Time of Year: -0.27F | rh_650: +0.18F,,,,,,
+2026-10-21 21:00:00,2026-10-21 02:48 UTC,Active,54,34,11.0,35.0,2.8,31.2,rh_850: -0.72F | Time of Year: -0.63F | rh_875: -0.62F | NBM Wind Direction (deg): +0.47F | NBM RH (%): +0.34F,,,,,,
+2026-10-22 21:00:00,2026-10-21 02:48 UTC,Active,57,37,20.0,38.0,3.2,33.8,rh_900: -0.34F | hrrr_lpw (mm): -0.33F | NBM Temperature (F): -0.30F | rh_850: -0.27F | NBM Wind Direction (deg): -0.26F,,,,,,
