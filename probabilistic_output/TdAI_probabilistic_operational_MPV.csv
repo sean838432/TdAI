@@ -1,4 +1,4 @@
 valid_time,TdAI Run Time (UTC),TdAI Status,NBM Dewpoint (F),TdAI_Predicted_Bias_q10,TdAI_Corrected_Dewpoint_q10,TdAI_Predicted_Bias_q25,TdAI_Corrected_Dewpoint_q25,TdAI_Predicted_Bias_q50,TdAI_Corrected_Dewpoint_q50,TdAI_Predicted_Bias_q75,TdAI_Corrected_Dewpoint_q75,TdAI_Predicted_Bias_q90,TdAI_Corrected_Dewpoint_q90,ASOS Ground Truth Dewpoint (F),Raw NBM Error (F),Post TdAI Median Error (F),TdAI Median Skill Score (%)
 2026-10-20 21:00:00,2026-10-20 20:13 UTC,Active,33,-2.4,25.7,0.7,27.4,1.7,31.3,5.6,32.3,7.3,35.4,27.0,6.0,4.3,28.3
-2026-10-21 21:00:00,2026-10-21 02:51 UTC,Active,33,-1.2,22.5,1.7,25.5,4.3,28.7,7.5,31.3,10.5,34.2,,,,
-2026-10-22 21:00:00,2026-10-21 02:51 UTC,Active,33,-3.8,28.6,-1.2,30.4,0.3,32.7,2.6,34.2,4.4,36.8,,,,
+2026-10-21 21:00:00,2026-10-21 14:51 UTC,Active,34,-2.4,24.2,1.6,25.8,4.8,29.2,8.2,32.4,9.8,36.4,,,,
+2026-10-22 21:00:00,2026-10-21 14:51 UTC,Active,36,-3.3,33.4,-2.3,34.0,-0.5,36.5,2.0,38.3,2.6,39.3,,,,
