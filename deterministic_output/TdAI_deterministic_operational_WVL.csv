@@ -1,4 +1,5 @@
 valid_time,TdAI Run Time (UTC),TdAI Status,NBM Temperature (F),NBM Dewpoint (F),NBM Max Wind Gust 15-21Z (kts),NDFD Dewpoint (F),TdAI Predicted Bias (F),TdAI Corrected Dewpoint (F),TdAI Top Drivers,ASOS Ground Truth Dewpoint (F),Raw NBM Error (F),Post TdAI Error (F),TdAI Skill Score (%),NDFD Error (F),NDFD Skill Score (%)
-2026-10-20 21:00:00,2026-10-20 20:09 UTC,Active,56,37,15.0,31.0,3.9,33.1,hrrr_lpw (mm): -1.39F | NBM Cloud Cover (%): -0.85F | Time of Year: -0.65F | 1000mb-700mb Lapse Rate (C/km): +0.49F | rh_500: -0.36F,34.0,3.0,-0.9,70.0,-3.0,0.0
-2026-10-21 21:00:00,2026-10-21 14:48 UTC,Active,53,36,10.0,36.0,2.6,33.4,hrrr_lpw (mm): -1.27F | rh_900: -0.81F | 1000mb-700mb Lapse Rate (C/km): +0.53F | Time of Year: -0.42F | 700mb-500mb Lapse Rate (C/km): +0.31F,37.0,-1.0,-3.6,-260.0,-1.0,0.0
-2026-10-22 21:00:00,2026-10-21 14:48 UTC,Active,55,37,21.0,35.0,1.1,35.9,rh_875: +0.48F | rh_800: -0.27F | rh_975: -0.19F | NBM Temperature (F): -0.19F | Time of Year: -0.16F,,,,,,
+2026-10-20 21:00:00,2026-10-20 20:09 UTC,Active,56.0,37.0,15.0,31.0,3.9,33.1,hrrr_lpw (mm): -1.39F | NBM Cloud Cover (%): -0.85F | Time of Year: -0.65F | 1000mb-700mb Lapse Rate (C/km): +0.49F | rh_500: -0.36F,34.0,3.0,-0.9,70.0,-3.0,0.0
+2026-10-21 21:00:00,2026-10-21 14:48 UTC,Active,53.0,36.0,10.0,36.0,2.6,33.4,hrrr_lpw (mm): -1.27F | rh_900: -0.81F | 1000mb-700mb Lapse Rate (C/km): +0.53F | Time of Year: -0.42F | 700mb-500mb Lapse Rate (C/km): +0.31F,37.0,-1.0,-3.6,-260.0,-1.0,0.0
+2026-10-22 21:00:00,2026-10-22 02:48 UTC,Active,55.0,38.0,20.0,38.0,0.0,38.0,rh_925: +0.54F | Time of Year: -0.42F | rh_825: +0.25F | 1000mb-700mb Lapse Rate (C/km): +0.21F | hrrr_lpw (mm): -0.14F,,,,,,
+2026-10-23 21:00:00,2026-10-22 02:48 UTC,T < 50 F,,,,,0.0,,,,,,,,
