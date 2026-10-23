@@ -2,4 +2,5 @@ valid_time,TdAI Run Time (UTC),TdAI Status,NBM Temperature (F),NBM Dewpoint (F),
 2026-10-20 21:00:00,2026-10-20 20:08 UTC,Active,60,40,10.0,35.0,4.4,35.6,Time of Year: -0.77F | rh_800: -0.53F | rh_850: -0.49F | NBM RH (%): +0.46F | hrrr_lpw (mm): -0.44F,30.0,10.0,5.6,44.0,5.0,50.0
 2026-10-21 21:00:00,2026-10-21 14:48 UTC,Active,55,35,10.0,35.0,4.0,31.0,rh_875: -0.76F | Time of Year: -0.64F | rh_850: -0.62F | 1000mb-700mb Lapse Rate (C/km): +0.54F | NBM RH (%): +0.48F,35.0,0.0,-4.0,0.0,0.0,0.0
 2026-10-22 21:00:00,2026-10-22 14:48 UTC,Active,61,40,16.0,40.0,2.5,37.5,Time of Year: -0.60F | rh_900: -0.31F | hrrr_lpw (mm): -0.27F | NBM Temperature (F): -0.19F | NBM Wind Direction (deg): -0.18F,39.0,1.0,-1.5,-50.0,1.0,0.0
-2026-10-23 21:00:00,2026-10-22 14:48 UTC,Active,54,28,10.0,27.0,4.9,23.1,Time of Year: -0.84F | rh_850: -0.81F | rh_875: -0.56F | hrrr_lpw (mm): +0.41F | NBM Cloud Cover (%): -0.36F,,,,,,
+2026-10-23 21:00:00,2026-10-23 02:48 UTC,Active,54,25,10.0,26.0,5.9,19.1,rh_850: -0.96F | Time of Year: -0.83F | NBM Wind Direction (deg): -0.72F | rh_875: -0.57F | rh_950: -0.40F,,,,,,
+2026-10-24 21:00:00,2026-10-23 02:48 UTC,Active,56,29,6.0,26.0,7.1,21.9,rh_850: -1.22F | NBM Cloud Cover (%): -0.67F | rh_875: -0.64F | Time of Year: -0.50F | hrrr_lpw (mm): -0.49F,,,,,,
