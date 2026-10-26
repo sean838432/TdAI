@@ -13,7 +13,7 @@ TdAI is an NBM postprocessing model that uses a Gradient Boosted Decision Tree (
 
 1. **Machine Learning Algorithm**: Gradient Boosted Decision Trees
 2. **Training Dataset**: TdAI is trained on the most recent 6 years of 21z NBM & HRRR data from March to November using a sliding training window. Training strictly on 21z data maximizes performance by focusing exclusively on peak boundary layer mixing and minimum diurnal RH.
-3. **Cycle Specialization**: Separate models for both deterministic and probabilistic versions were trained for each operational cycle of TdAI (run time and forecast hour) to prevent structural bias:
+3. **Cycle Specialization**: Separate models for both the deterministic and probabilistic architectures were trained for each operational cycle of TdAI (run time and forecast hour) to prevent structural bias:
    * **02:45z TdAI Day 1**: 00z HRRR at f21 and 01z NBM at f20
    * **02:45z TdAI Day 2**: 00z HRRR at f45 and 01z NBM at f44
    * **14:45z TdAI Day 1**: 12z HRRR at f09 and 13z NBM at f08
@@ -46,14 +46,14 @@ TdAI is an NBM postprocessing model that uses a Gradient Boosted Decision Tree (
 
 ## Repository Overview
 
-The repository consists of three main components:
+The repository consists of 5 main components:
 
-1. **Deterministic Pipeline**: A Python script ingesting 00z/12z HRRR and 01z/13z NBM data at KCAR used to run the deterministic TdAI models twice daily.
-2. **Probabilistic Pipeline**: A Python script ingesting 00z/12z HRRR and 01z/13z NBM data at KCAR used to run the probabilistic TdAI models twice daily.
-3. **Web Visualization Dashboard**: An operational web dashboard displaying live TdAI forecast outputs.
+1. **Deterministic Forecast Pipeline**: ```TdAI_deterministic_operational.py``` ingests 00z/12z HRRR and 01z/13z NBM data at KCAR to run the deterministic TdAI models operationally. ```TdAI_cron.yml``` runs this pipeline automatically twice daily.
+2. **Probabilistic Forecast Pipeline**: ```TdAI_probabilistic_operational.py``` ingests 00z/12z HRRR and 01z/13z NBM data at KCAR to run the probabilistic TdAI models operationally. ```TdAI_cron.yml``` runs this pipeline automatically twice daily.
+3. **Deterministic Verification Pipeline**: ```TdAI_deterministic_verification.py``` verifies the current day's TdAI forecast and NDFD forecast against 21 UTC ASOS data. ```TdAI_verify.yml``` runs this pipeline automatically twice daily.
+4. **Web Visualization Dashboard**: An operational web dashboard displaying live TdAI forecast outputs. See the link in the about section. 
+5. **Automatic TdAI Retraining Pipeline**: ```TdAI_auto_retrain.py``` uses an automated 6 year sliding window retraining algorithm which, once a month, brings the current training dataset up to current, drops data older than 6 years, and retrains the operational deterministic and probabilistic models. ```TdAI_auto_retrain.yml``` runs this pipeline automatically on the first of the month. 
 
-> **Automated Execution**: Google Cloud Scheduler triggers a cron job executing TdAI daily at **02:45z** and **14:45z** and an additional daily cron job at 21:30z verifies TdAI predictions. A monthly cron (on the 1st of each month) extends the training dataset by one month and drops any data exceeding 6 years before retraining the operational models.
+> **Automated Execution**: Google Cloud Scheduler triggers a cron job producing TdAI forecasts daily at **02:45z** and **14:45z** and an additional daily cron job at 21:30z verifies TdAI predictions. A monthly cron (on the 1st of each month) extends the training dataset by one month and drops any data exceeding 6 years before retraining the operational models.
 
 ---
-
-## Future Additions
