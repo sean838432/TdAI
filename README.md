@@ -46,20 +46,24 @@ TdAI is an NBM postprocessing model that uses a Gradient Boosted Decision Tree (
 
 ## Repository Overview
 
-The repository consists of 6 main components:
+The repository consists of 7 main components:
 
-1. **Deterministic Forecast Pipeline**: ```TdAI_deterministic_operational.py``` ingests 00z/12z HRRR and 01z/13z NBM data at KCAR to run the deterministic TdAI models operationally. ```TdAI_cron.yml``` runs this pipeline automatically twice daily.
+1. **HRRR, NBM, & ASOS Download**: Under ```data_download.py```, ```hrrr_soundings_download.py```, ```NBM_download.py``` and ```ASOS_download.py``` download the HRRR sounding, NBM station, and ASOS data needed for training TdAI. ```sounding_compilation_parquet.py``` packages HRRR sounding CSV files into more lightweight parquet files. 
 
-2. **Probabilistic Forecast Pipeline**: ```TdAI_probabilistic_operational.py``` ingests 00z/12z HRRR and 01z/13z NBM data at KCAR to run the probabilistic TdAI models operationally. ```TdAI_cron.yml``` runs this pipeline automatically twice daily.
+2. **Model Training & Evaluation (static framework)**: Under ```/model_training_STATIC```, ```TdAI_Deterministic_TRAINING.py``` and ```TdAI_Deterministic_EVALUATION.py``` are used for the initial training and evaluation of the deterministic TdAI models while ```TdAI_Probabilistic_TRAINING.py``` and ```TdAI_Probabilistic_EVALUATION.py``` are used for the initial training and evaluation of the probabilistic TdAI models. ```TdAI_Training_Dataset_Compilation.py``` compiles all HRRR, NBM, and ASOS data into the training dataset used for training the deterministic and probabilistic models.
 
-3. **Deterministic Verification Pipeline**: ```TdAI_deterministic_verification.py``` verifies the current day's TdAI forecast and NDFD forecast against 21 UTC ASOS data. ```TdAI_verify.yml``` runs this pipeline automatically twice daily.
+3. **Deterministic Forecast Pipeline**: ```TdAI_deterministic_operational.py``` ingests 00z/12z HRRR and 01z/13z NBM data at KCAR to run the deterministic TdAI models operationally. ```TdAI_cron.yml``` runs this pipeline automatically twice daily.
 
-4. **Web Visualization Dashboard**: An operational web dashboard displaying live TdAI forecast outputs. See the link in the about section.
+4. **Probabilistic Forecast Pipeline**: ```TdAI_probabilistic_operational.py``` ingests 00z/12z HRRR and 01z/13z NBM data at KCAR to run the probabilistic TdAI models operationally. ```TdAI_cron.yml``` runs this pipeline automatically twice daily.
+
+5. **Deterministic Verification Pipeline**: ```TdAI_deterministic_verification.py``` verifies the current day's TdAI forecast and NDFD forecast against 21 UTC ASOS data. ```TdAI_verify.yml``` runs this pipeline automatically twice daily.
+
+6. **Web Visualization Dashboard**: ```TdAI_dashboard.html``` is an operational web dashboard displaying live TdAI forecast outputs. See the live link in the about section.```CHANGELOG.txt``` and ```ABOUT.txt``` describe the TdAI design framework and recent changes to the model architecture, respectively, and are linked on the dashboard.
  
-5. **Automatic TdAI Retraining Pipeline**: ```TdAI_auto_retrain.py``` uses an automated 6 year sliding window retraining algorithm which, once a month, brings the current training dataset up to current, drops data older than 6 years, and retrains the operational deterministic and probabilistic models. ```TdAI_auto_retrain.yml``` runs this pipeline automatically on the first of the month, placing freshly trained models in ```/model_training_STATIC/trained_models```.
-
-6. **Model Training & Evaluation (static framework)**: Under ```/model_training_STATIC```, ```TdAI_Deterministic_TRAINING.py``` and ```TdAI_Deterministic_EVALUATION.py``` are used for the initial training and evaluation of the deterministic TdAI models while ```TdAI_Probabilistic_TRAINING.py``` and ```TdAI_Probabilistic_EVALUATION.py``` are used for the initial training and evaluation of the probabilistic TdAI models. ```TdAI_Training_Dataset_Compilation.py``` compiles all HRRR, NBM, and ASOS data into the training dataset used for training the deterministic and probabilistic models.
+7. **Automatic TdAI Retraining Pipeline**: ```TdAI_auto_retrain.py``` uses an automated 6 year sliding window retraining algorithm which, once a month, brings the current training dataset up to current, drops data older than 6 years, and retrains the operational deterministic and probabilistic models. ```TdAI_auto_retrain.yml``` runs this pipeline automatically on the first of the month, placing freshly trained models in ```/model_training_STATIC/trained_models```.
 
 > **Automated Execution**: Google Cloud Scheduler triggers a cron job producing TdAI forecasts daily at **02:45z** and **14:45z** and an additional daily cron job at 21:30z verifies TdAI predictions. A monthly cron (on the 1st of each month) extends the training dataset by one month and drops any data exceeding 6 years before retraining the operational models.
 
 ---
+
+_Instructions for training TdAI on new ASOS sites can be found in the ```TRAINING_TdAI_INSTRUCTIONS.md``` file._
