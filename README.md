@@ -7,6 +7,8 @@
 
 TdAI is an NBM postprocessing model that uses a Gradient Boosted Decision Tree (GBDT) machine learning algorithm to bias correct NBM dew point forecasts, particularly on dry, well-mixed days. Its output is designed to be used by forecasters as a fire weather situational tool, giving them confidence to decrease the forecast dew point, and thus RH, well below guidance. The overall goal of TdAI is to improve the quality of the fire weather products and services the National Weather Service provides to its fire partners.
 
+[View this Guide to Using TdAI in Fire Weather Forecasting](https://docs.google.com/presentation/d/14jsYIcL4HC_F7zt0J1pxPgK9sxE3065olbZQ4nxCyCM/edit?usp=sharing)
+
 ---
 
 ## TdAI Model Architecture
