@@ -8,5 +8,5 @@ valid_time,TdAI Run Time (UTC),TdAI Status,NBM Temperature (F),NBM Dewpoint (F),
 2026-10-26 21:00:00,2026-10-26 14:47 UTC,Active,59.0,45.0,9.0,45.0,0.3,44.7,rh_900: +0.47F | Time of Year: -0.40F | NBM Wind Direction (deg): +0.37F | NBM Temperature (F): -0.17F | NBM RH (%): +0.16F,41.0,4.0,3.7,7.5,4.0,0.0
 2026-10-27 21:00:00,2026-10-27 14:48 UTC,T < 50 F,,,,,0.0,,,26.0,,,,,
 2026-10-28 21:00:00,2026-10-28 14:49 UTC,Active,55.0,32.0,5.0,29.0,2.4,29.6,Time of Year: -0.67F | NBM Temperature (F): -0.39F | hrrr_lpw (mm): +0.25F | rh_900: -0.22F | NBM Wind Direction (deg): -0.21F,32.0,0.0,-2.4,0.0,-3.0,0.0
-2026-10-29 21:00:00,2026-10-29 14:48 UTC,RH > 60 %,,,,51.0,0.0,,,,,,,,
+2026-10-29 21:00:00,2026-10-29 14:48 UTC,RH > 60 %,,,,51.0,0.0,,,48.0,,,,,
 2026-10-30 21:00:00,2026-10-29 14:48 UTC,Active,52.0,35.0,19.0,36.0,0.8,34.2,rh_875: +0.67F | rh_900: +0.64F | Time of Year: -0.33F | NBM Temperature (F): -0.32F | 1000mb-700mb Lapse Rate (C/km): -0.32F,,,,,,
