@@ -11,5 +11,5 @@ valid_time,TdAI Run Time (UTC),TdAI Status,NBM Temperature (F),NBM Dewpoint (F),
 2026-10-29 21:00:00,2026-10-29 14:48 UTC,Active,63.0,48.0,23.0,46.0,1.3,46.7,NBM Mixing Height (100s ft AGL): -0.18F | NBM Cloud Cover (%): -0.14F | rh_775: -0.11F | rh_550: -0.10F | Time of Year: -0.10F,47.0,1.0,-0.3,70.0,-1.0,0.0
 2026-10-30 21:00:00,2026-10-30 14:48 UTC,Sky > 60 %,,,,,0.0,,,36.0,,,,,
 2026-10-31 21:00:00,2026-10-31 14:48 UTC,T < 50 F,,,,,0.0,,,23.0,,,,,
-2026-11-01 21:00:00,2026-11-01 14:49 UTC,Active,55.0,36.0,12.0,32.0,2.2,33.8,hrrr_lpw (mm): -0.46F | NBM Cloud Cover (%): -0.44F | NBM Mixing Height (100s ft AGL): -0.21F | rh_900: +0.14F | Time of Year: -0.12F,,,,,,
+2026-11-01 21:00:00,2026-11-01 14:49 UTC,Active,55.0,36.0,12.0,32.0,2.2,33.8,hrrr_lpw (mm): -0.46F | NBM Cloud Cover (%): -0.44F | NBM Mixing Height (100s ft AGL): -0.21F | rh_900: +0.14F | Time of Year: -0.12F,34.0,2.0,-0.2,90.0,-2.0,0.0
 2026-11-02 21:00:00,2026-11-01 14:49 UTC,Active,61.0,43.0,13.0,42.0,0.7,42.3,rh_900: +0.21F | rh_800: +0.20F | rh_1000: -0.18F | rh_975: -0.18F | NBM Temperature (F): -0.16F,,,,,,
