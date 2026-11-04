@@ -20,13 +20,19 @@ Turn each output on/off with its do_* flag in the INPUTS block:
   do_pit_and_crps_check      PIT histograms, one panel per station, plus a
                              printed CRPS-style score table (mean pinball loss
                              across the 5 quantiles).            [no gate]
+  do_det_vs_median_plot      Deterministic vs. median (q50) correction scatter
+                             plots, one panel per station, plus a printed
+                             table of the average gap and each model's error
+                             by deterministic correction size
+                             (DET_VS_MEDIAN_BINS).               [all gated days]
 
 Gate = NBM T >= 50F, RH <= 60%, Sky <= 60%. Moist bust = NBM error > 0.
-The three plots are saved to model_training_STATIC/{HOLDOUT_YEAR}_evaluation_{WFO}/.
+The plots are saved to model_training_STATIC/{HOLDOUT_YEAR}_evaluation_{WFO}/.
 
 Requires: models from TdAI_v3.1_Probabilistic_TRAINING.py run with
 PRODUCTION_MODE = False (loaded from trained_models_EVALUATION/), so the
-holdout year was excluded from training.
+holdout year was excluded from training. do_det_vs_median_plot also needs the
+deterministic models from TdAI_v3.1_Deterministic_TRAINING.py, same mode.
 """
 
 import os
@@ -49,8 +55,12 @@ training_dataset_path = os.path.join(base_path, "model_training_STATIC/training_
 # saw during training.
 models_output_path = os.path.join(base_path, "model_training_STATIC/trained_models_EVALUATION/")
 
-WFO = "BTV"
-STATIONS = ["BTV", "SLK", "RUT", "VSF", "PBG", "MPV"]
+WFO = "CAR"
+# STATIONS = ["BTV", "SLK", "RUT", "VSF", "PBG", "MPV"]
+# STATIONS = ["CON", "BML", "WVL", "IZG", "LEW", "LEB"]
+STATIONS = ["FVE", "CAR", "HUL", "MLT", "GNR", "BGR"]
+# STATIONS = ["BDL", "ORH", "TAN", "LWM", "ORE", "IJD"]
+# STATIONS = ["ALB", "POU", "GFL", "DDH", "AQW", "PSF"]
 CYCLE_NAMES = ['03z_Day1', '03z_Day2', '15z_Day1', '15z_Day2']
 
 HOLDOUT_YEAR = 2025
@@ -60,8 +70,15 @@ do_ci_band_plot = False
 do_gated_coverage_check = False
 do_ungated_coverage_check = False
 do_pit_and_crps_check = True
+do_det_vs_median_plot = True
 
 N_CI_BAND_BINS = 10
+
+# Deterministic-correction groups (°F) for the det-vs-median comparison
+# summary - (low, high, label), low inclusive / high exclusive.
+DET_VS_MEDIAN_BINS = [(0, 2, '0-2°F'), (2, 4, '2-4°F'), (4, 6, '4-6°F'), (6, np.inf, '6+°F')]
+# Det-vs-median disagreement (°F) worth flagging in the panel titles.
+DET_VS_MEDIAN_BIG_GAP_F = 1.0
 ###############################################################################
 
 
@@ -775,3 +792,124 @@ if do_pit_and_crps_check:
         print(f"🖼️  Saved -> {pit_plot_path}")
 
     print("\n✨ PIT HISTOGRAM + CRPS CHECK COMPLETE!")
+
+
+####################################################################
+#                                                                  #
+#                     TdAI PERFORMANCE EVALUATION                  #
+#            (Deterministic vs. Median Comparison, All Gated)       #
+#                                                                  #
+####################################################################
+
+# Compares the two products forecasters actually see side by side: the
+# deterministic correction (floored at 0, as in TdAI_deterministic_operational.py)
+# and the probabilistic median (q50 after sorting the 5 quantiles, as in
+# TdAI_probabilistic_operational.py). The models are trained independently,
+# so some disagreement is expected - this shows how much, where (by
+# deterministic correction size), and which model was closer to the
+# observation when they disagreed. Uses all gated days, since both products
+# are issued on every gated day.
+if do_det_vs_median_plot:
+    det_vs_median_output_path = os.path.join(base_path, f"model_training_STATIC/{HOLDOUT_YEAR}_evaluation_{WFO}/")
+    os.makedirs(det_vs_median_output_path, exist_ok=True)
+
+    print("\n" + "=" * 70)
+    print(f" DETERMINISTIC VS. MEDIAN COMPARISON ({HOLDOUT_YEAR}, All Cycles Pooled, All Gated Days)")
+    print("=" * 70)
+
+    station_pooled = {}
+    for station in STATIONS:
+        actual_list, det_list, med_list = [], [], []
+        for c_name in CYCLE_NAMES:
+            det_model_path = os.path.join(models_output_path, station, f"tdai_deterministic_model_{station}_{c_name}.joblib")
+            det_schema_path = os.path.join(models_output_path, station, f"deterministic_model_feature_schema_{station}_{c_name}.joblib")
+            if not (os.path.exists(det_model_path) and os.path.exists(det_schema_path)):
+                print(f"⚠️ Missing deterministic model for K{station} {c_name}. Skipping.")
+                continue
+
+            loaded = load_gated_probabilistic(station, c_name)
+            if loaded is None:
+                continue
+            X_gated, y_gated, models_dict = loaded
+
+            # Deterministic model gets its own feature order from its own schema
+            det_model = joblib.load(det_model_path)
+            X_full = X_gated.reindex(columns=joblib.load(det_schema_path))
+            det_pred = np.maximum(det_model.predict(X_full), 0.0)  # TdAI never suggests raising Td
+
+            quantile_preds = np.column_stack([models_dict[q].predict(X_gated) for q in ['q10', 'q25', 'q50', 'q75', 'q90']])
+            med_pred = np.sort(quantile_preds, axis=1)[:, 2]  # median after the operational sort
+
+            actual_list.append(y_gated.values)
+            det_list.append(det_pred)
+            med_list.append(med_pred)
+
+        if not actual_list:
+            print(f"⚠️ No {HOLDOUT_YEAR} gated samples across any cycle for K{station}. Skipping.")
+            continue
+        station_pooled[station] = (np.concatenate(actual_list), np.concatenate(det_list), np.concatenate(med_list))
+
+    if not station_pooled:
+        print("⚠️ No stations had usable data for the deterministic vs. median comparison.")
+    else:
+        n_cols = 2
+        n_rows = int(np.ceil(len(station_pooled) / n_cols))
+        fig, axes = plt.subplots(n_rows, n_cols, figsize=(6 * n_cols, 5.6 * n_rows), squeeze=False)
+        axes_flat = axes.flatten()
+
+        summary_rows = []
+        for ax, (station, (actual, det_pred, med_pred)) in zip(axes_flat, station_pooled.items()):
+            gap = det_pred - med_pred
+            big_gap_pct = (np.abs(gap) >= DET_VS_MEDIAN_BIG_GAP_F).mean() * 100.0
+            corr = np.corrcoef(det_pred, med_pred)[0, 1] if det_pred.std() > 0 and med_pred.std() > 0 else float('nan')
+
+            ax.scatter(det_pred, med_pred, s=16, alpha=0.45, color='dodgerblue', edgecolor='none')
+            lo = min(det_pred.min(), med_pred.min()) - 0.5
+            hi = max(det_pred.max(), med_pred.max()) + 0.5
+            ax.plot([lo, hi], [lo, hi], color='black', linestyle='--', linewidth=1.2, label='Perfect Agreement (1:1)')
+            ax.fill_between([lo, hi], [lo - DET_VS_MEDIAN_BIG_GAP_F, hi - DET_VS_MEDIAN_BIG_GAP_F],
+                            [lo + DET_VS_MEDIAN_BIG_GAP_F, hi + DET_VS_MEDIAN_BIG_GAP_F],
+                            color='gray', alpha=0.12, label=f'Within ±{DET_VS_MEDIAN_BIG_GAP_F:.1f}°F')
+            ax.axhline(0, color='gray', linewidth=0.8)
+            ax.set_xlim(lo, hi)
+            ax.set_ylim(lo, hi)
+            ax.set_xlabel('Deterministic Correction (°F)', fontsize=14)
+            ax.set_ylabel('Median (q50) Correction (°F)', fontsize=14)
+            ax.tick_params(axis='both', labelsize=12)
+            ax.set_title(f'K{station} (n={len(actual)}, r={corr:.2f}, |gap|≥{DET_VS_MEDIAN_BIG_GAP_F:.1f}°F: {big_gap_pct:.1f}%)',
+                         fontsize=14, fontweight='bold')
+            ax.grid(linestyle='--', alpha=0.4)
+            ax.legend(fontsize=11, loc='upper left')
+
+            for bin_lo, bin_hi, label in DET_VS_MEDIAN_BINS:
+                mask = (det_pred >= bin_lo) & (det_pred < bin_hi)
+                if not mask.any():
+                    summary_rows.append((station, label, 0, np.nan, np.nan, np.nan, np.nan, np.nan))
+                    continue
+                det_err = np.abs(actual[mask] - det_pred[mask])
+                med_err = np.abs(actual[mask] - med_pred[mask])
+                summary_rows.append((station, label, int(mask.sum()), det_pred[mask].mean(), med_pred[mask].mean(),
+                                     det_err.mean(), med_err.mean(), (med_err < det_err).mean() * 100.0))
+
+        for ax in axes_flat[len(station_pooled):]:
+            ax.axis('off')
+
+        fig.suptitle(f'Deterministic vs. Median TdAI Correction by Station ({HOLDOUT_YEAR}, All Cycles Pooled, All Gated Days)',
+                     fontsize=15, fontweight='bold')
+        fig.tight_layout(rect=[0, 0, 1, 0.98])
+
+        det_vs_median_plot_path = os.path.join(det_vs_median_output_path, "det_vs_median_scatter_by_station.png")
+        fig.savefig(det_vs_median_plot_path, dpi=150)
+        plt.close(fig)
+        print(f"🖼️  Saved -> {det_vs_median_plot_path}")
+
+        # "Med closer" = % of days the median's error was strictly smaller
+        # than the deterministic's (ties count as not closer).
+        print(f"\n{'Station':<8}{'Det bin':>9}{'n':>6}{'Det avg':>9}{'Med avg':>9}{'Det MAE':>9}{'Med MAE':>9}{'Med closer':>12}")
+        for station, label, n, det_avg, med_avg, det_mae, med_mae, med_closer in summary_rows:
+            if n == 0:
+                print(f"{station:<8}{label:>9}{n:>6}{'--':>9}{'--':>9}{'--':>9}{'--':>9}{'--':>12}")
+            else:
+                print(f"{station:<8}{label:>9}{n:>6}{det_avg:>8.2f}F{med_avg:>8.2f}F{det_mae:>8.2f}F{med_mae:>8.2f}F{med_closer:>11.1f}%")
+
+    print("\n✨ DETERMINISTIC VS. MEDIAN COMPARISON COMPLETE!")

@@ -96,7 +96,7 @@
       'CAR': ['FVE', 'CAR', 'HUL', 'MLT', 'GNR', 'BGR'],
       'GYX': ['BML', 'WVL', 'LEW', 'IZG', 'LEB', 'CON'],
       'BTV': ['PBG', 'BTV', 'SLK', 'MPV', 'RUT', 'VSF'],
-      'ALY': [],  // TODO: ALY station list not yet defined
+      'ALY': ['GFL', 'DDH', 'ALB', 'AQW', 'POU', 'PSF'],
       'BOX': ['LWM', 'ORE', 'ORH', 'BDL', 'TAN', 'IJD'],
     };
     const WFO_ORDER = ['CAR', 'GYX', 'BTV', 'ALY', 'BOX'];
@@ -542,6 +542,10 @@
                     <span id="${s}-v-ndfd-skill-score" class="font-extrabold text-sm">--.-%</span>
                   </div>
                 </div>
+              </div>
+
+              <div id="${s}-asos-missing" class="hidden bg-amber-950/20 border border-amber-500/30 rounded-xl p-3 text-center text-amber-300 font-bold text-xs">
+                Missing 21 UTC Observation
               </div>
             </div>
 
@@ -1065,6 +1069,20 @@
         }
       } else {
         vPanel.classList.add('hidden');
+      }
+
+      // On a verification tab, an Active forecast with no ASOS value means
+      // the 21 UTC report itself is missing (TdAI_deterministic_verification.py
+      // runs at 21:30 UTC and only accepts the report nearest 21 UTC). Waiting
+      // until 21:45 UTC gives that run time to finish and commit its results,
+      // so the warning doesn't flash on a day that's about to be verified.
+      const asosMissingEl = document.getElementById(`${s}-asos-missing`);
+      const validTimeMs = Date.parse(data.validTimeStr.replace(' ', 'T') + ':00Z');
+      const verificationDue = !isNaN(validTimeMs) && (Date.now() - validTimeMs) >= 45 * 60 * 1000;
+      if (tabKey.startsWith('day_minus') && !data.isVerified && verificationDue) {
+        asosMissingEl.classList.remove('hidden');
+      } else {
+        asosMissingEl.classList.add('hidden');
       }
     }
 

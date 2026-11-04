@@ -153,7 +153,7 @@ def calculate_lapse_rate_vectorized(df, p_bottom, p_top):
 base_path = "/home/sean834/TdAI/"
 data_path = os.path.join(base_path, "data_download/")
 trained_models_path = os.path.join(base_path, "model_training_STATIC/training_dataset/")
-STATIONS = ["BTV", "SLK", "RUT", "VSF", "PBG", "MPV"]
+STATIONS = ["BDL", "ORH", "TAN", "LWM", "ORE", "IJD", "ALB", "POU", "GFL", "DDH", "AQW", "PSF"]
 
 # 📅 Define dataset date thresholds (YYYY-MM-DD)
 START_DATE = '2021-01-01' # To restrict dataset to HRRRv4 only

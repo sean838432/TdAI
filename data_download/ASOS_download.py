@@ -14,8 +14,7 @@ import pandas as pd
 
 ################################## INPUTS ####################################
 # List of station identifiers (IEM searches all networks automatically)
-#STATIONS = ['CAR', 'BGR', 'BHB', 'HUL', 'GNR', 'MLT', 'FVE']
-STATIONS = ['BDL', 'ORH', 'TAN', 'LWM', 'ORE', 'IJD']
+STATIONS = ['BDL', 'ORH', 'TAN', 'LWM', 'ORE', 'IJD', 'ALB', 'POU', 'GFL', 'DDH', 'AQW', 'PSF'] 
 DATA_VARS = ['dwpf', 'valid']
 BASE_URL = 'https://mesonet.agron.iastate.edu/cgi-bin/request/asos.py'
 

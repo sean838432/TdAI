@@ -92,7 +92,9 @@ SETUP_WORKFLOW_TEST = False
 
 STATIONS = ['CAR', 'FVE', 'HUL', 'MLT', 'GNR', 'BGR', 
             'CON', 'BML', 'WVL', 'IZG', 'LEW', 'LEB',
-            'BTV', 'SLK', 'RUT', 'VSF', 'PBG', 'MPV']
+            'BTV', 'SLK', 'RUT', 'VSF', 'PBG', 'MPV',
+            'BDL', 'ORH', 'TAN', 'LWM', 'ORE', 'IJD',
+            'ALB', 'POU', 'GFL', 'DDH', 'AQW', 'PSF']
 
 STATION_COORDS = {
     'CAR': (46.870490, -68.017221),
@@ -113,6 +115,18 @@ STATION_COORDS = {
     'VSF': (43.342143, -72.521297),
     'PBG': (44.639226, -73.463124),
     'MPV': (44.205158, -72.565504),
+    'BDL': (41.937421, -72.682023),
+    'ORH': (42.270562, -71.873128),
+    'TAN': (41.875626, -71.020832),
+    'LWM': (42.712485, -71.125703),
+    'ORE': (42.569998, -72.286994),
+    'IJD': (41.742493, -72.182473),
+    'ALB': (42.747231, -73.799135),
+    'POU': (41.625748, -73.881551),
+    'GFL': (43.338495, -73.610239),
+    'DDH': (42.893524, -73.248776),
+    'AQW': (42.697294, -73.169624),
+    'PSF': (42.426866, -73.289075),
 }
 
 # Matches model_training_STATIC/TdAI_v3.1_Training_Dataset_Compilation.py's CYCLES

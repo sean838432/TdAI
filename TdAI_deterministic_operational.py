@@ -14,6 +14,7 @@ independent schedule - this script only ever generates forecasts.
 import os
 import re
 import glob
+import time
 import datetime
 import requests
 import numpy as np
@@ -52,6 +53,18 @@ STATIONS = {
     'VSF': (43.342143, -72.521297),
     'PBG': (44.639226, -73.463124),
     'MPV': (44.205158, -72.565504),
+    'BDL': (41.937421, -72.682023),
+    'ORH': (42.270562, -71.873128),
+    'TAN': (41.875626, -71.020832),
+    'LWM': (42.712485, -71.125703),
+    'ORE': (42.569998, -72.286994),
+    'IJD': (41.742493, -72.182473),
+    'ALB': (42.747231, -73.799135),
+    'POU': (41.625748, -73.881551),
+    'GFL': (43.338495, -73.610239),
+    'DDH': (42.893524, -73.248776),
+    'AQW': (42.697294, -73.169624),
+    'PSF': (42.426866, -73.289075),
 }
 
 # Static api.weather.gov gridpoint identifiers (NDFD's practical JSON front
@@ -77,6 +90,18 @@ NDFD_GRIDPOINTS = {
     'VSF': ('BTV', 120, 8),
     'PBG': ('BTV', 79, 63),
     'MPV': ('BTV', 112, 47),
+    'BDL': ('BOX', 20, 72),
+    'ORH': ('BOX', 45, 92),
+    'TAN': ('BOX', 77, 79),
+    'LWM': ('BOX', 66, 117),
+    'ORE': ('BOX', 29, 103),
+    'IJD': ('BOX', 39, 66),
+    'ALB': ('ALY', 70, 67),
+    'POU': ('ALY', 75, 16),
+    'GFL': ('ALY', 72, 95),
+    'DDH': ('ALY', 87, 77),
+    'AQW': ('ALY', 91, 68),
+    'PSF': ('ALY', 89, 55),
 }
 
 OUTPUT_HEADERS = [
@@ -234,21 +259,71 @@ def download_hrrr_grib(date_str, run_hour='12', forecast_hour=0):
         print(f"   ⚠️ NCEP server registry blocker on F{forecast_hour:02d}: {e}")
         return None
 
+NBM_FETCH_ATTEMPTS = 3
+
 def get_nbm_bulletin(date_str, run_hour='13'):
-    """Retrieves the NBM text blend terminal output for a specified run hour (all stations)."""
+    """Retrieves the NBM text blend terminal output for a specified run hour
+    (all stations). Returns (text, status), where status is:
+      'ok'      - bulletin fetched
+      'missing' - NOMADS says the file isn't there (403/404 - what it returns
+                  for a bulletin that hasn't been posted yet)
+      'error'   - still failing after NBM_FETCH_ATTEMPTS tries (dropped
+                  connection, 5xx, truncated body) - a transient fault, NOT
+                  evidence the bulletin is unavailable
+    Separating 'missing' from 'error' matters: main() only falls back to the
+    previous day's bulletin when it's genuinely 'missing'. A real run once hit
+    a one-off dropped connection, fell back to the 24h-older bulletin, and
+    silently flipped the run gate on several forecasts."""
     base_url = f"https://nomads.ncep.noaa.gov/pub/data/nccf/com/blend/prod/blend.{date_str}/{run_hour}/text/"
     url = base_url + f"blend_nbstx.t{run_hour}z"
     print(f"📡 Requesting NBM Text Feed: {url}")
-    try:
-        response = requests.get(url, timeout=15)
-        if response.status_code == 200:
-            print(f"   └── Successfully fetched NBM text bulletin for {date_str} ({run_hour}Z).")
-            return response.text
-        print(f"   ⚠️ File not ready yet on server for date {date_str} (Status: {response.status_code})")
-        return None
-    except Exception as e:
-        print(f"   ❌ NBM terminal network fault: {e}")
-        return None
+    for attempt in range(1, NBM_FETCH_ATTEMPTS + 1):
+        try:
+            response = requests.get(url, timeout=30)
+            if response.status_code in (403, 404):
+                print(f"   ⚠️ NBM bulletin not posted on server for {date_str} ({run_hour}Z) (Status: {response.status_code}).")
+                return None, 'missing'
+            # A complete bulletin is ~30 MB of every station's block - a short
+            # or block-less 200 is a truncated/garbled transfer, so retry it.
+            if response.status_code == 200 and len(response.text) > 1_000_000 and ' NBM ' in response.text:
+                print(f"   └── Successfully fetched NBM text bulletin for {date_str} ({run_hour}Z).")
+                return response.text, 'ok'
+            print(f"   ⚠️ Bad NBM response (Status: {response.status_code}, {len(response.text)} bytes) - attempt {attempt}/{NBM_FETCH_ATTEMPTS}.")
+        except Exception as e:
+            print(f"   ⚠️ NBM network fault (attempt {attempt}/{NBM_FETCH_ATTEMPTS}): {e}")
+        if attempt < NBM_FETCH_ATTEMPTS:
+            time.sleep(10 * attempt)
+    print(f"   ❌ NBM bulletin for {date_str} ({run_hour}Z) still failing after {NBM_FETCH_ATTEMPTS} attempts.")
+    return None, 'error'
+
+
+def fetch_nbm_matching_hrrr(hrrr_date_str, previous_date_str, run_hour):
+    """Fetches the NBM bulletin that pairs with the HRRR cycle actually
+    downloaded. Returns (bulletin_text, date_str) or raises RuntimeError.
+
+    - If HRRR itself fell back to the previous day, NBM goes straight to that
+      day too, so the two always come from the same date.
+    - Otherwise today's bulletin is tried (with retries), and the previous
+      day's is used ONLY if today's is genuinely not posted - never because
+      of a transient network fault - with a loud warning, since the models
+      then see a NBM forecast 24h older than they were trained on."""
+    bulletin_text, status = get_nbm_bulletin(hrrr_date_str, run_hour=run_hour)
+    if status == 'ok':
+        return bulletin_text, hrrr_date_str
+    if status == 'error':
+        raise RuntimeError(f"NBM {run_hour}Z bulletin for {hrrr_date_str} unreachable after retries - refusing to "
+                           f"fall back to {previous_date_str}'s bulletin on a network fault (it would be 24h staler "
+                           f"than the HRRR cycle it's paired with).")
+
+    if previous_date_str is None:
+        raise RuntimeError(f"NBM {run_hour}Z bulletin for {hrrr_date_str} is not posted.")
+
+    print(f"⚠️⚠️ WARNING: {hrrr_date_str} {run_hour}Z NBM bulletin is not posted - falling back to {previous_date_str}'s. "
+          f"These forecasts pair {hrrr_date_str} HRRR with 24h-older NBM and are less reliable than normal.")
+    bulletin_text, status = get_nbm_bulletin(previous_date_str, run_hour=run_hour)
+    if status != 'ok':
+        raise RuntimeError(f"NBM {run_hour}Z bulletin unavailable for both {hrrr_date_str} and {previous_date_str}.")
+    return bulletin_text, previous_date_str
 
 def fetch_ndfd_dewpoint_values(station):
     """Fetches NDFD's current dewpoint forecast time series for one station
@@ -783,6 +858,7 @@ def main():
         print(f"☀️ Daytime Cron: Extracting 12Z HRRR Cycles for Day 1 (F09) and Day 2 (F33) afternoon windows...")
 
     grib_files = {}
+    hrrr_date_str = None
     for ds_date in date_strs:
         success = True
         temp_files = {}
@@ -797,6 +873,7 @@ def main():
                 break
         if success:
             grib_files = temp_files
+            hrrr_date_str = ds_date
             break
 
     if not grib_files:
@@ -813,16 +890,17 @@ def main():
         nbm_run_hour = '13'
         print("☀️ Daytime Cron: Targeting the 13Z NBM Text Bulletin...")
 
-    bulletin_text = None
-    successful_date_str = None
-    for date_str in date_strs:
-        bulletin_text = get_nbm_bulletin(date_str, run_hour=nbm_run_hour)
-        if bulletin_text:
-            successful_date_str = date_str
-            break
-
-    if not bulletin_text:
-        raise RuntimeError(f"NBM operational terminal bulletin stream ({nbm_run_hour}Z) unreachable.")
+    # Pair NBM with the HRRR cycle actually downloaded (see fetch_nbm_matching_hrrr)
+    hrrr_idx = date_strs.index(hrrr_date_str)
+    previous_date_str = date_strs[hrrr_idx + 1] if hrrr_idx + 1 < len(date_strs) else None
+    try:
+        bulletin_text, successful_date_str = fetch_nbm_matching_hrrr(hrrr_date_str, previous_date_str, nbm_run_hour)
+    except RuntimeError:
+        # Clean up the already-downloaded GRIBs before failing the run
+        for grib_file in grib_files.values():
+            if os.path.exists(grib_file):
+                os.remove(grib_file)
+        raise
 
     # -------------------------------------------------------------------------
     # 🔁 SECTION 3: RUN THE FULL PIPELINE FOR EACH STATION

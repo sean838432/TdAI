@@ -5,7 +5,7 @@
 import pandas as pd
 from pathlib import Path
 
-STATION_IDS = ["KBTV", "KSLK", "KRUT", "KVSF", "KPBG", "KMPV"]  # Add all the stations you want to compile
+STATION_IDS = ["KBDL", "KORH", "KTAN", "KLWM", "KORE", "KIJD", "KALB", "KPOU", "KGFL", "KDDH", "KAQW", "KPSF"]  # Add all the stations you want to compile
 soundings_dir = Path(r"/home/sean834/TdAI/data_download/HRRR_forecast_soundings")
 
 for STATION_ID in STATION_IDS:

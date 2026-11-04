@@ -12,6 +12,11 @@ Turn each output on/off with its do_* flag in the INPUTS block:
   do_scatter_plot          Actual vs. predicted error scatter plots, one panel
                            per station with all 4 cycles pooled.
                            (do_color_by_cycle colors points by cycle.)
+  do_bust_size_bar_chart   Bar charts grouping moist-bust days by actual NBM
+                           error size (BUST_SIZE_BINS), comparing average
+                           actual error to TdAI's average correction, one
+                           panel per station. Simpler to read than the
+                           scatter plot.
   do_feature_importance    SHAP feature-importance bar charts per station,
                            averaged across cycles.
   do_bust_threshold_count  Printed table of how many training rows have NBM
@@ -47,8 +52,12 @@ training_dataset_path = os.path.join(base_path, "model_training_STATIC/training_
 # saw during training.
 models_output_path = os.path.join(base_path, "model_training_STATIC/trained_models_EVALUATION/")
 
-WFO = "BTV"
-STATIONS = ["BTV", "SLK", "RUT", "VSF", "PBG", "MPV"]
+WFO = "ALY"  # For labeling output folders and plots
+# STATIONS = ["BTV", "SLK", "RUT", "VSF", "PBG", "MPV"]
+# STATIONS = ["CON", "BML", "WVL", "IZG", "LEW", "LEB"]
+# STATIONS = ["FVE", "CAR", "HUL", "MLT", "GNR", "BGR"]
+# STATIONS = ["BDL", "ORH", "TAN", "LWM", "ORE", "IJD"]
+STATIONS = ["ALB", "POU", "GFL", "DDH", "AQW", "PSF"]
 CYCLE_NAMES = ['03z_Day1', '03z_Day2', '15z_Day1', '15z_Day2']
 
 # Must match HOLDOUT_YEAR in TdAI_v3.1_Deterministic_TRAINING.py - the models
@@ -57,6 +66,7 @@ HOLDOUT_YEAR = 2025
 
 do_top25 = False
 do_scatter_plot = True
+do_bust_size_bar_chart = True
 do_feature_importance = False
 do_bust_threshold_count = False
 
@@ -71,6 +81,14 @@ CYCLE_COLORS = {
     '15z_Day1': '#ff7f0e',  # orange
     '15z_Day2': '#9467bd',  # purple
 }
+
+# Actual NBM moist-bust size groups (°F) for the bust-size bar chart -
+# (low, high, label), low exclusive / high inclusive, applied to the error
+# rounded to the nearest whole °F - so (0, 2] holds exactly the 1 and 2°F
+# busts, hence labels like '1-2°F'. (Rounding matters for 2021-2023, where
+# some ASOS dewpoints were stored in tenths, giving errors like 2.1 or 3.9.)
+# Note the 7+°F group is small - as few as 5-6 distinct days per station in 2025.
+BUST_SIZE_BINS = [(0, 2, '1-2°F'), (2, 4, '3-4°F'), (4, 6, '5-6°F'), (6, np.inf, '7+°F')]
 
 N_TOP_FEATURES = 10
 
@@ -351,12 +369,111 @@ if do_scatter_plot:
         fig.tight_layout(rect=[0, 0, 1, 0.99])
 
         scatter_suffix = "_by_cycle" if do_color_by_cycle else ""
-        scatter_plot_path = os.path.join(scatter_output_path, f"residual_scatter_by_station{scatter_suffix}.png")
+        scatter_plot_path = os.path.join(scatter_output_path, f"deterministic_scatter_by_station{scatter_suffix}.png")
         fig.savefig(scatter_plot_path, dpi=150)
         plt.close(fig)
         print(f"🖼️  Saved -> {scatter_plot_path}")
 
     print("\n✨ SCATTER PLOT GENERATION COMPLETE!")
+
+
+####################################################################
+#                                                                  #
+#                     TdAI PERFORMANCE EVALUATION                  #
+#                        (Bust-Size Bar Chart)                     #
+#                                                                  #
+####################################################################
+
+# A plain-language alternative to the scatter plot for new users: groups
+# moist-bust days by how big NBM's error actually was, then compares the
+# average actual error in each group to TdAI's average correction. Shows at
+# a glance that TdAI corrects in the right direction, and how much of each
+# bust size it removes, without needing to interpret R2 or a best-fit slope.
+if do_bust_size_bar_chart:
+    bar_output_path = os.path.join(base_path, f"model_training_STATIC/{HOLDOUT_YEAR}_evaluation_{WFO}/")
+    os.makedirs(bar_output_path, exist_ok=True)
+
+    print("\n" + "=" * 70)
+    print(f" GENERATING BUST-SIZE BAR CHARTS ({HOLDOUT_YEAR}, All Cycles Pooled)")
+    print("=" * 70)
+
+    station_pooled = {}
+    for station in STATIONS:
+        actual_list, pred_list = [], []
+        for c_name in CYCLE_NAMES:
+            loaded = load_gated_moist_bust(station, c_name)
+            if loaded is None:
+                continue
+            X_moist, y_moist, gb_model = loaded
+            y_pred = np.maximum(gb_model.predict(X_moist), 0.0)  # TdAI never suggests raising Td
+            actual_list.append(y_moist.values)
+            pred_list.append(y_pred)
+
+        if not actual_list:
+            print(f"⚠️ No {HOLDOUT_YEAR} moist-bust + gated samples across any cycle for K{station}. Skipping.")
+            continue
+        station_pooled[station] = (np.concatenate(actual_list), np.concatenate(pred_list))
+
+    if not station_pooled:
+        print("⚠️ No stations had usable data for the bust-size bar chart.")
+    else:
+        n_cols = 2
+        n_rows = int(np.ceil(len(station_pooled) / n_cols))
+        fig, axes = plt.subplots(n_rows, n_cols, figsize=(6 * n_cols, 5.0 * n_rows), squeeze=False, sharey=True)
+        axes_flat = axes.flatten()
+
+        x = np.arange(len(BUST_SIZE_BINS))
+        width = 0.38
+
+        for ax, (station, (actual, predicted)) in zip(axes_flat, station_pooled.items()):
+            bin_actual, bin_pred, bin_n = [], [], []
+            # Binning only - bar heights use exact values. Floored at 1 so a
+            # rare 0.1°F moist bust lands in the first group instead of none.
+            actual_rounded = np.maximum(np.round(actual), 1.0)
+            for bin_lo, bin_hi, _ in BUST_SIZE_BINS:
+                mask = (actual_rounded > bin_lo) & (actual_rounded <= bin_hi)
+                bin_n.append(int(mask.sum()))
+                bin_actual.append(actual[mask].mean() if mask.any() else 0.0)
+                bin_pred.append(predicted[mask].mean() if mask.any() else 0.0)
+
+            actual_bars = ax.bar(x - width / 2, bin_actual, width, label='Actual NBM Error (avg)', color='salmon', alpha=0.85)
+            pred_bars = ax.bar(x + width / 2, bin_pred, width, label='TdAI Correction (avg)', color='dodgerblue', alpha=0.85)
+
+            for bars in (actual_bars, pred_bars):
+                for bar, n in zip(bars, bin_n):
+                    if n > 0:
+                        ax.annotate(f'{bar.get_height():.1f}', (bar.get_x() + bar.get_width() / 2, bar.get_height()),
+                                    ha='center', va='bottom', fontsize=10, xytext=(0, 2), textcoords='offset points')
+
+            tdai_mae = mean_absolute_error(actual, predicted)
+            nbm_mae = np.abs(actual).mean()
+            skill_score = (1.0 - tdai_mae / nbm_mae) * 100.0 if nbm_mae > 0 else float('nan')
+
+            ax.set_xticks(x)
+            ax.set_xticklabels([f'{label}\n(n={n})' for (_, _, label), n in zip(BUST_SIZE_BINS, bin_n)], fontsize=12)
+            ax.set_xlabel('Actual NBM Moist Error Magnitude', fontsize=14)
+            ax.set_ylabel('Dewpoint Error (°F)', fontsize=14)
+            ax.tick_params(axis='y', labelsize=12)
+            ax.set_title(f'K{station} (n={len(actual)}, Skill={skill_score:+.1f}%)', fontsize=15, fontweight='bold')
+            ax.grid(axis='y', linestyle='--', alpha=0.4)
+            ax.set_axisbelow(True)
+            ax.legend(fontsize=11, loc='upper left')
+            # sharey=True hides inner y tick labels by default; keep them on every panel
+            ax.yaxis.set_tick_params(labelleft=True)
+
+        for ax in axes_flat[len(station_pooled):]:
+            ax.axis('off')
+
+        fig.suptitle(f'Average TdAI Correction vs. Actual NBM Moist Error Magnitude ({HOLDOUT_YEAR}, All Cycles Pooled)',
+                     fontsize=15, fontweight='bold')
+        fig.tight_layout(rect=[0, 0, 1, 0.98])
+
+        bar_plot_path = os.path.join(bar_output_path, "bust_size_bar_chart_by_station.png")
+        fig.savefig(bar_plot_path, dpi=150)
+        plt.close(fig)
+        print(f"🖼️  Saved -> {bar_plot_path}")
+
+    print("\n✨ BUST-SIZE BAR CHART GENERATION COMPLETE!")
 
 
 ####################################################################

@@ -23,7 +23,9 @@ import pandas as pd
 ################################## INPUTS ####################################
 STATIONS = ['CAR', 'FVE', 'HUL', 'MLT', 'GNR', 'BGR', 
             'CON', 'BML', 'WVL', 'IZG', 'LEW', 'LEB',
-            'BTV', 'SLK', 'RUT', 'VSF', 'PBG', 'MPV']
+            'BTV', 'SLK', 'RUT', 'VSF', 'PBG', 'MPV',
+            'BDL', 'ORH', 'TAN', 'LWM', 'ORE', 'IJD',
+            'ALB', 'POU', 'GFL', 'DDH', 'AQW', 'PSF']
 
 # Mirrors TdAI_deterministic_operational.py's OUTPUT_HEADERS - kept as a
 # separate copy here (rather than imported) so this script has zero

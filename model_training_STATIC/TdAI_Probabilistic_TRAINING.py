@@ -64,7 +64,11 @@ seed_everything(42)
 # False -> Leaves out HOLDOUT_YEAR strictly as an independent validation test bench.
 PRODUCTION_MODE = True
 HOLDOUT_YEAR = 2025
-STATIONS = ["BTV", "SLK", "RUT", "VSF", "PBG", "MPV"]
+# STATIONS = ["BTV", "SLK", "RUT", "VSF", "PBG", "MPV"]
+# STATIONS = ["CON", "BML", "WVL", "IZG", "LEW", "LEB"]
+# STATIONS = ["FVE", "CAR", "HUL", "MLT", "GNR", "BGR"]
+# STATIONS = ["BDL", "ORH", "TAN", "LWM", "ORE", "IJD"]
+STATIONS = ["ALB", "POU", "GFL", "DDH", "AQW", "PSF"]
 
 # Define paths
 base_path = "/home/sean834/TdAI/"
