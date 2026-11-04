@@ -1,4 +1,4 @@
 valid_time,TdAI Run Time (UTC),TdAI Status,NBM Temperature (F),NBM Dewpoint (F),NBM Max Wind Gust 15-21Z (kts),NDFD Dewpoint (F),TdAI Predicted Bias (F),TdAI Corrected Dewpoint (F),TdAI Top Drivers,ASOS Ground Truth Dewpoint (F),Raw NBM Error (F),Post TdAI Error (F),TdAI Skill Score (%),NDFD Error (F),NDFD Skill Score (%)
-2026-11-03 21:00:00,2026-11-03 13:46 UTC,Active,67.0,41.0,11.0,41.0,1.4,39.6,hrrr_lpw (mm): +0.54F | rh_925: -0.54F | Time of Year: -0.38F | rh_950: -0.34F | NBM Temperature (F): -0.19F,,,,,,
-2026-11-04 21:00:00,2026-11-04 14:50 UTC,Active,72.0,53.0,14.0,51.0,0.7,52.3,rh_875: -0.47F | rh_925: +0.45F | Time of Year: -0.26F | rh_950: +0.20F | rh_500: +0.15F,,,,,,
+2026-11-03 21:00:00,2026-11-03 13:46 UTC,Active,67.0,41.0,11.0,41.0,1.4,39.6,hrrr_lpw (mm): +0.54F | rh_925: -0.54F | Time of Year: -0.38F | rh_950: -0.34F | NBM Temperature (F): -0.19F,43.0,-2.0,-3.4,-70.0,-2.0,0.0
+2026-11-04 21:00:00,2026-11-04 14:50 UTC,Active,72.0,53.0,14.0,51.0,0.7,52.3,rh_875: -0.47F | rh_925: +0.45F | Time of Year: -0.26F | rh_950: +0.20F | rh_500: +0.15F,54.0,-1.0,-1.7,-70.0,-3.0,-200.0
 2026-11-05 21:00:00,2026-11-04 14:50 UTC,"RH > 60 %, Sky > 60 %",,,,,0.0,,,,,,,,
