@@ -1179,6 +1179,15 @@ def main():
         run_test_mode(base_path, TEST_START_DATE, TEST_END_DATE)
         return
 
+    # Skip the Dec/Jan/Feb 1st triggers entirely. No new in-season data can
+    # exist yet and operational runs are paused, so a retrain would only
+    # reproduce the same models and overwrite trained_models_backup/ with a
+    # copy of them. The Mar 1 run backfills everything missed through Nov 15.
+    today_utc = datetime.datetime.now(datetime.timezone.utc).date()
+    if not in_training_season(today_utc):
+        print(f"❄️ {today_utc} is outside the Mar 1 - Nov 15 training season. Skipping backfill and retrain - nothing was changed.")
+        return
+
     print("🔁 INITIALIZING TdAI MONTHLY AUTO-RETRAIN PIPELINE")
     print("=" * 70)
 
