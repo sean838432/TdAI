@@ -1,5 +1,5 @@
 valid_time,TdAI Run Time (UTC),TdAI Status,NBM Temperature (F),NBM Dewpoint (F),NBM Max Wind Gust 15-21Z (kts),NDFD Dewpoint (F),TdAI Predicted Bias (F),TdAI Corrected Dewpoint (F),TdAI Top Drivers,ASOS Ground Truth Dewpoint (F),Raw NBM Error (F),Post TdAI Error (F),TdAI Skill Score (%),NDFD Error (F),NDFD Skill Score (%)
 2026-11-03 21:00:00,2026-11-03 13:47 UTC,Sky > 60 %,,,,,0.0,,,45.0,,,,,
 2026-11-04 21:00:00,2026-11-04 14:51 UTC,Active,71.0,53.0,10.0,52.0,2.9,50.1,Time of Year: -0.91F | rh_1000: -0.21F | rh_700: -0.19F | rh_875: -0.17F | rh_900: -0.14F,48.0,5.0,2.1,58.0,4.0,20.0
-2026-11-05 21:00:00,2026-11-05 14:49 UTC,"RH > 60 %, Sky > 60 %",,,,,0.0,,,,,,,,
+2026-11-05 21:00:00,2026-11-05 14:49 UTC,"RH > 60 %, Sky > 60 %",,,,,0.0,,,61.0,,,,,
 2026-11-06 21:00:00,2026-11-05 14:49 UTC,Sky > 60 %,,,,,0.0,,,,,,,,
