@@ -5,5 +5,5 @@ valid_time,TdAI Run Time (UTC),TdAI Status,NBM Temperature (F),NBM Dewpoint (F),
 2026-11-06 21:00:00,2026-11-06 14:50 UTC,"RH > 60 %, Sky > 60 %",,,,,0.0,,,63.0,,,,,
 2026-11-07 21:00:00,2026-11-07 14:49 UTC,"RH > 60 %, Sky > 60 %",,,,,0.0,,,56.0,,,,,
 2026-11-08 21:00:00,2026-11-08 14:49 UTC,Active,56.0,38.0,20.0,44.0,1.7,36.3,NBM Wind Direction (deg): -0.60F | rh_975: +0.31F | Time of Year: -0.27F | 1000mb-700mb Lapse Rate (C/km): -0.23F | rh_675: -0.21F,40.0,-2.0,-3.7,-85.0,4.0,-100.0
-2026-11-09 21:00:00,2026-11-09 14:48 UTC,Active,55.0,37.0,16.0,43.0,0.2,36.8,rh_975: +0.56F | NBM Wind Direction (deg): -0.41F | Time of Year: -0.25F | NBM Temperature (F): -0.21F | rh_675: +0.15F,,,,,,
+2026-11-09 21:00:00,2026-11-09 14:48 UTC,Active,55.0,37.0,16.0,43.0,0.2,36.8,rh_975: +0.56F | NBM Wind Direction (deg): -0.41F | Time of Year: -0.25F | NBM Temperature (F): -0.21F | rh_675: +0.15F,40.0,-3.0,-3.2,-6.7,3.0,0.0
 2026-11-10 21:00:00,2026-11-09 14:48 UTC,Active,54.0,35.0,15.0,41.0,2.9,32.1,hrrr_lpw (mm): -0.55F | NBM Wind Direction (deg): -0.50F | NBM RH (%): +0.29F | rh_575: -0.27F | Time of Year: -0.23F,,,,,,
