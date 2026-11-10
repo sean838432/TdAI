@@ -297,8 +297,16 @@
     // (with one level of nesting), bold, and italics. Not a full CommonMark parser.
     function inlineMarkdown(str) {
       let s = escapeHtml(str);
+      // [text](url) links - http(s) only. Swapped out for placeholders first
+      // so the bold/italic rules below can't alter characters inside a URL.
+      const links = [];
+      s = s.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, (_, text, url) => {
+        links.push(`<a href="${url}" target="_blank" rel="noopener noreferrer" class="text-indigo-400 hover:text-indigo-300 font-bold underline underline-offset-2">${text}</a>`);
+        return `\u0000${links.length - 1}\u0000`;
+      });
       s = s.replace(/\*\*(.+?)\*\*/g, '<strong class="text-slate-100 font-bold">$1</strong>');
       s = s.replace(/\*(.+?)\*/g, '<em>$1</em>');
+      s = s.replace(/\u0000(\d+)\u0000/g, (_, i) => links[Number(i)]);
       return s;
     }
 
