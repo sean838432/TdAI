@@ -1,19 +1,32 @@
 """
+TdAI - NBM Text Bulletin Download
 
-This script loads in NBM station data over a specified time range
-from the the NOAA NBM GRIB2 PDS S3 AWS bucket and saves the data to individual
-files based on the NBM run (e.g. 20251115_12z.csv).
+Downloads historical NBM text bulletins (blend_nbstx) from the NOAA NBM
+GRIB2 PDS S3 bucket for each station in STATIONS, and builds one training
+CSV per station for a single NBM cycle (CYCLE_HOUR).
 
-The NBM data can be found at: https://noaa-nbm-grib2-pds.s3.amazonaws.com/index.html
+Run it twice - once with CYCLE_HOUR = '01' and once with '13' - since TdAI's
+03z models use the 01Z NBM and its 15z models use the 13Z NBM.
 
-Raw per-cycle bulletins (blend_nbstx) are ~30 MB and contain every NBM
-station in the country. Rather than saving that whole file, the downloader
-streams the S3 object and keeps only the block(s) belonging to STATIONS,
-closing the connection as soon as every requested station has been found.
-Each station's raw files are written to their own subfolder under
-NBM_Raw_Data_Files (e.g. NBM_Raw_Data_Files/KCAR/), tiny and containing
-only the raw, unmodified bulletin text for that station.
+The script:
+  1) Streams each day's ~30 MB bulletin and keeps only the blocks for
+     STATIONS, closing the connection once all are found. Each station's raw,
+     unmodified block is cached in NBM_Raw_Data_Files/{STATION}/, so a re-run
+     skips days already downloaded.
+  2) Parses temperature, dewpoint, sky cover, mixing height, wind speed, and
+     wind direction, keeping the 15z, 18z, and 21z forecasts for Day 1 and
+     Day 2 (the 15-21z hours feed TdAI's averaged sky cover).
+  3) Saves NBM_data/NBM_Master_Data_{STATION}_{CYCLE_HOUR}z.csv.
 
+Days run from START_MD to END_MD each year. START_MD is Feb 28 so the Day 2
+forecast from that day's run covers Mar 1, the first day of the training
+season.
+
+Note: 'NBM Wind Direction (deg)' is saved exactly as the bulletin gives it,
+in TENS of degrees (0-36), despite the column name. Every model is trained on
+that scale, so the operational scripts must pass it unconverted.
+
+NBM data: https://noaa-nbm-grib2-pds.s3.amazonaws.com/index.html
 """
 
 import os

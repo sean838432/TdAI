@@ -1,10 +1,23 @@
 """
-Full historical download of HRRR VVEL (omega, 21 isobaric
-levels matching the existing T/Td/u/v archive), SOILW (soil moisture, 4
-near-surface depths), MSLMA (mean sea level pressure - synoptic proxy), and
-500mb geopotential height (synoptic proxy), for all 4 training stations
-across every operational cycle (12z_f09, 12z_f33, 00z_f21, 00z_f45), 2021-2026.
+TdAI - Experimental HRRR Feature Download (VVEL, SOILW, MSLMA, 500mb HGT)
 
+EXPERIMENTAL - not part of the current TdAI pipeline. None of these fields
+are inputs to the deployed models, and no other script reads this output. It
+was used to test candidate features: MSLP was tested and dropped (no real
+skill gain), and soil moisture was tested but is not in the current models.
+
+Downloads, for each station in STATIONS (currently the 7 NWS CAR sites), every
+day from Mar 1 - Nov 15, 2021-2026, and each of TdAI's 4 HRRR runs (12z F09,
+12z F33, 00z F21, 00z F45), from the nearest HRRR grid point:
+  - VVEL: vertical velocity (omega) at the same 21 levels (1000-500 mb) as
+    the main sounding archive
+  - SOILW: soil moisture at 4 depths (0.01-0.3 m)
+  - MSLMA: mean sea level pressure (synoptic proxy)
+  - 500 mb geopotential height (synoptic proxy)
+
+Output: one CSV per station, run, and day, saved to
+  HRRR_vvel_soilw_mslma_hgt/{STATION}_{run_label}/{STATION}_{run_label}_{YYYYMMDD}.csv
+Existing files are skipped, so an interrupted run resumes where it left off.
 """
 
 import pandas as pd

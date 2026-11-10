@@ -1,12 +1,17 @@
 """
 TdAI Monthly Auto-Retrain Pipeline
 
-Runs via a cron job (TdAI_auto_retrain.yml) on the 1st of every month to:
+Runs via a cron job (TdAI_auto_retrain.yml) on the 1st of every month. The
+Dec 1, Jan 1, and Feb 1 runs exit immediately without changing anything (no
+new in-season data can exist and forecasts are paused); the Mar 1 run then
+backfills everything missed through Nov 15. Each in-season run:
 
     1) Reads each station/cycle's existing training dataset CSV to find the
        last calendar day already compiled.
     2) Walks forward one calendar day at a time (from that day through
        yesterday), downloading all necessary HRRR, NBM, and ASOS training data for that day.
+       Only days whose target date falls in Mar 1 - Nov 15 are compiled;
+       winter days are skipped without downloading anything.
        HRRR soundings (Herbie/AWS+Google) and NBM text bulletins (S3 archive)
        are downloaded for ALL stations at once per network call, then the data
        is parsed and necessary training features are engineered for each station/cycle
@@ -29,6 +34,11 @@ Runs via a cron job (TdAI_auto_retrain.yml) on the 1st of every month to:
        retrain can be rolled back by restoring that folder. TdAI will then run
        on the new models for the next month, and the next retrain will again back up
        the current models before overwriting them with the new ones.
+
+TEST_MODE (recompute a date range and compare it against the existing
+dataset, writing nothing) and SETUP_WORKFLOW_TEST (rebuild a test copy of
+model_training_AUTO/) are manual testing aids, set in the INPUTS block. Both
+run regardless of the season. Leave both False for the real monthly run.
 """
 
 import os

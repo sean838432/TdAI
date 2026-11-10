@@ -1,14 +1,35 @@
 """
 TdAI Deterministic Forecast Operational Script
 
-TdAI deterministic operational run on live NBM/HRRR data. 
-This script is run on a schedule (via TdAI_cron.yml) 
-to produce the TdAI deterministic forecast output for each station, saved in CSVs, 
-which are then consumed by the TdAI dashboard.
+Runs the deterministic TdAI models on live HRRR and NBM data for every station
+in STATIONS, producing Day 1 and Day 2 21 UTC dewpoint forecasts. Run twice
+daily via TdAI_cron.yml (~0245Z and ~1445Z); output goes to
+deterministic_output/TdAI_deterministic_operational_{STATION}.csv for the
+TdAI dashboard.
 
-ASOS verification (Ground Truth backfill, error/skill scoring) is handled
-entirely by the separate TdAI_deterministic_verification.py, run on its own
-independent schedule - this script only ever generates forecasts.
+Each run:
+  1) Picks the cycle from the current UTC time: before 14Z uses the 00Z HRRR
+     (F21/F45) + 01Z NBM and the 03z_Day1/03z_Day2 models; otherwise the 12Z
+     HRRR (F09/F33) + 13Z NBM and the 15z_Day1/15z_Day2 models.
+  2) Downloads the HRRR GRIBs once and the NBM text bulletin once, shared by
+     all stations. The NBM bulletin is matched to the HRRR cycle's date, and
+     the previous day's bulletin is used only if today's is genuinely not
+     posted (with a warning) - never because of a network fault.
+  3) Per station: extracts the HRRR sounding, parses the NBM block, builds the
+     model features, and pulls NDFD's dewpoint (comparison only, never a
+     model input).
+  4) Runs the model only when the gate passes (NBM T >= 50F, RH <= 60%,
+     Sky <= 60%), clamps the bias at >= 0 (TdAI never raises Td above NBM),
+     and stores the top 5 SHAP drivers.
+  5) Merges the rows into the station's CSV, replacing any earlier forecast
+     for the same valid time.
+
+Models are loaded from model_training_AUTO/trained_models/{STATION}/. From
+Nov 16 - Feb 28 the script skips all downloads and writes "paused for the
+winter" status rows instead.
+
+ASOS verification is handled entirely by TdAI_deterministic_verification.py,
+on its own schedule - this script only generates forecasts.
 """
 
 import os

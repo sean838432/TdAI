@@ -1,8 +1,24 @@
 """
-This script grabs dewpoint data from specified ASOS stations and saves the data to CSV files
+TdAI - ASOS Ground Truth Download
 
-Info on CGI parameters is available at:
+Downloads observed ASOS dewpoints from the Iowa Environmental Mesonet (IEM)
+for each station in STATIONS. These are the ground truth for the TdAI training
+target (NBM dewpoint error = NBM - ASOS).
 
+For each station it:
+  1) Requests every routine hourly METAR dewpoint (report_type 3 - SPECIs and
+     5-minute obs are excluded) from START_YEAR - END_YEAR in one bulk request.
+  2) Drops missing ('M') values and keeps only Mar 1 - Nov 15 (START_MD/END_MD).
+  3) Keeps one observation per clock hour - the one closest to the top of the
+     hour - as a safeguard, so duplicate reports in the same hour can't create
+     conflicting targets once the training data is merged on the rounded hour.
+  4) Saves ASOS_data/K{STATION}_{START_YEAR}_to_{END_YEAR}_asos.csv, then waits
+     10 seconds before the next station to avoid IEM rate limiting.
+
+Station IDs are listed without the "K" prefix (IEM's convention); the "K" is
+added to the output filename.
+
+Info on IEM's request parameters:
     https://mesonet.agron.iastate.edu/cgi-bin/request/asos.py?help
 """
 

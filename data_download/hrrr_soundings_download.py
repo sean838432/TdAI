@@ -1,3 +1,31 @@
+"""
+TdAI - HRRR Forecast Sounding Download
+
+Downloads HRRR forecast soundings at one ASOS station for building the TdAI
+training dataset. Data come from the AWS/Google HRRR archives via Herbie.
+
+For every day from Mar 1 - Nov 15, 2021-2026, it pulls the 4 HRRR runs TdAI
+uses (12z F09, 12z F33, 00z F21, 00z F45). From each it takes temperature,
+dewpoint, and U/V wind at 1013-500 mb from the grid point nearest the station.
+
+To use:
+  1. Uncomment the STATION_ID / STATION_LAT, STATION_LON pair for the station
+     you want (leave all others commented out) and run the script.
+  2. Repeat for each station.
+  3. Then run sounding_compilation_parquet.py to combine the CSVs into one
+     parquet file per run.
+
+Output: one CSV per day per run, saved to
+  HRRR_forecast_soundings/{STATION_ID}/{run_label}/hrrr_{run_label}_{station}_{YYYYMMDD}.csv
+
+Files that already exist are skipped, so an interrupted run can be restarted
+and will pick up where it left off. Downloads run in parallel, 100 at a time.
+
+Keep station coordinates in sync with STATIONS in the operational scripts and
+STATION_COORDS in TdAI_auto_retrain.py, so live forecasts use the same HRRR
+grid point the models were trained on.
+"""
+
 import pandas as pd
 from herbie import Herbie
 from concurrent.futures import ThreadPoolExecutor, as_completed, ProcessPoolExecutor

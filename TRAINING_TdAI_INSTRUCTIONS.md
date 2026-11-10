@@ -150,7 +150,9 @@ _Only run this script if you held out a year for model evaluation._ You can choo
 
 **do_ungated_coverage_check:** Checks if the percentage of samples within the 50% and 80% confidence interval matches what is expected from a well calibrated distribution (e.g. do about 50% of the observed NBM-ASOS error fall within the model's 25th and 75th percentiles?) on the raw, unfiltered dataset (truest calibration check).
 
-**do_ungated_coverage_check:** Creates a probability integral transform (PIT) histogram for assessing calibration of the entire probabilistic TdAI forecast distribution (highly recommend looking at this to assess skew). The PIT histogram should appear left skewed (skewed towards predicting higher NBM errors). This is an intentional result of the weighting scheme and provides more protection against extreme errors. This option also produces a Continuous Ranked Probability Score (CRPS) table, measuring both the calibration and sharpness of the TdAI forecast distribution.
+**do_pit_and_crps_check:** Creates a probability integral transform (PIT) histogram for assessing calibration of the entire probabilistic TdAI forecast distribution (highly recommend looking at this to assess skew). The PIT histogram should appear left skewed (skewed towards predicting higher NBM errors). This is an intentional result of the weighting scheme and provides more protection against extreme errors. This option also produces a Continuous Ranked Probability Score (CRPS) table, measuring both the calibration and sharpness of the TdAI forecast distribution.
+
+**do_det_vs_median_plot:** Produces a deterministic vs median TdAI forecast scatter plot to check how well aligned TdAI's deterministic and probabilistic forecasts are with each other. They should be relatively similar (within 1-2 degrees) but overall the median may be a bit more conservative.
 
 ## STEP 3. Operationalizing TdAI
 

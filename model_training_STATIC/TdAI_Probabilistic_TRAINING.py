@@ -1,9 +1,9 @@
 '''
-TdAI Probabilistic Training Script
+TdAI Probabilistic - Training
 
 This script trains a Gradient Boosted Decision Tree (GBDT) algorithm to predict 21z NBM Td error 
 at the 10th, 25th, 50th, 75th, and 90th percentiles.
-It is trained on 6 years of HRRR, NBM, and ASOS data from 2021-2026
+It is trained on 6 years of HRRR, NBM, and ASOS data from 2021-2026.
 
     FEATURE VARIABLES:
         NBM Temperature (C)

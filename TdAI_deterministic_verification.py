@@ -10,6 +10,17 @@ Runs on its own schedule (~2130Z, shortly after the 21Z valid time) via
 TdAI_verify.yml, separately from the 0245Z/1445Z forecast-generating cron -
 so a day's verification happens right after it's actually observable,
 rather than waiting for the next forecast run.
+
+Ground truth is the IEM ASOS report closest to 21 UTC (routine reports and
+SPECIs rounded to the nearest hour). If that report is missing, the row stays
+unverified and is retried on every later run; the dashboard shows "Missing 21
+UTC ASOS observation" for it. Errors and skill scores are only computed for
+"Active" rows - gate-bypassed rows just record the observed ASOS dewpoint.
+Rows already verified before NDFD data existed get their NDFD error/skill
+filled in without a new download.
+
+Only the deterministic CSVs are verified here - TdAI_probabilistic_operational.py
+verifies its own output.
 """
 
 import os

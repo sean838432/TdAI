@@ -1,10 +1,27 @@
 """
 TdAI Probabilistic Forecast Operational Script
 
-TdAI probabilistic operational run on live NBM/HRRR data. 
-This script is run on a schedule (via TdAI_cron.yml) 
-to produce the TdAI probabilistic forecast output for each station, saved in CSVs, 
-which are then consumed by the TdAI dashboard.
+Runs the probabilistic (quantile) TdAI models on live HRRR and NBM data for
+every station in STATIONS, producing Day 1 and Day 2 21 UTC dewpoint
+forecasts at the 10th, 25th, 50th, 75th, and 90th percentiles. Run twice
+daily via TdAI_cron.yml right after TdAI_deterministic_operational.py; output
+goes to probabilistic_output/TdAI_probabilistic_operational_{STATION}.csv for
+the TdAI dashboard.
+
+Cycle selection, HRRR/NBM downloads (including the NBM date-matching and
+fallback rules), feature building, and the run gate are identical to
+TdAI_deterministic_operational.py. Differences:
+  - Each station/cycle model is a set of 5 LightGBM quantile models. Their
+    predictions are sorted per row so the percentiles can never cross.
+  - The quantiles are flipped when converted to dewpoint: the largest
+    predicted bias (q90) becomes the driest dewpoint (10th percentile).
+  - Unlike the deterministic side, this script also verifies its own past
+    forecasts against ASOS (median error and median skill score) each time
+    it runs, so its verification lags until the next run after 21 UTC.
+
+Models are loaded from model_training_AUTO/trained_models/{STATION}/. From
+Nov 16 - Feb 28 the script skips all downloads and writes "paused for the
+winter" status rows instead.
 """
 
 import os

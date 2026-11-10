@@ -1,5 +1,5 @@
 '''
-TdAI Deterministic Training Script
+TdAI Deterministic - Training
 
 This script trains a Gradient Boosted Decision Tree (GBDT) algorithm to predict NBM Td error at 21z.
 It is trained on 6 years of HRRR, NBM, and ASOS data from 2021-2026

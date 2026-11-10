@@ -1,5 +1,7 @@
 TdAI is a machine learning model designed to bias correct the NBM's deterministic dewpoint forecast and probabilistic distribution.
 
+[View this Guide to Using TdAI in Fire Weather Forecasting](https://drive.google.com/file/d/1H9goHviApsth-jGSCMCc7jPiZcZvuIZl/view?usp=sharing)
+
 ---
 
 ## TdAI Limitations for Forecasting
@@ -24,6 +26,9 @@ TdAI is a machine learning model designed to bias correct the NBM's deterministi
    * **14:45z TdAI Day 2**: 12z HRRR at f33 and 13z NBM at f32
 
 4. **Execution Gating Criteria**: TdAI runs only when **NBM RH ≤ 60%**, **T ≥ 50°F**, and **Cloud Cover ≤ 60%**. This prevents forecasters from seeing TdAI output on non-fire weather days where predictions carry little operational significance.
+
+5. **Automated Retraining**: The TdAI deterministic and probabilistic models are automatically retrained on the 1st of each month with training data added from the previous month. Any training data older than 6 years is dropped to stay somewhat current with NBM versions.
+
 
 ## Feature Variables
 * NBM Temperature (°C)

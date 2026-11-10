@@ -1,6 +1,20 @@
-# =========================================================================
-# 🚀 COMPILE CSV FILES INTO PER-RUN PARQUET FILES
-# =========================================================================
+"""
+TdAI - HRRR Sounding Compilation (CSV -> Parquet)
+
+Combines the per-day HRRR sounding CSVs from hrrr_soundings_download.py into
+one parquet file per station per HRRR run, for
+model_training_STATIC/TdAI_Training_Dataset_Compilation.py to read.
+
+To use: list the stations in STATION_IDS (with the "K" prefix) and run. For
+each station, every run subfolder (12z_f09, 12z_f33, 00z_f21, 00z_f45) under
+HRRR_forecast_soundings/{STATION_ID}/ is combined into:
+  HRRR_forecast_soundings/{STATION_ID}/{STATION_ID}_{run_label}_Soundings.parquet
+
+Rows are sorted by valid_time and pressure level, with valid_time and
+init_time stored as real datetimes. A CSV that can't be read is skipped with
+a warning rather than stopping the run, and a station with no folder is
+skipped. Re-running overwrites the existing parquet files.
+"""
 
 import pandas as pd
 from pathlib import Path
