@@ -13,4 +13,5 @@ valid_time,TdAI Run Time (UTC),TdAI Status,NBM Dewpoint (F),TdAI_Predicted_Bias_
 2026-11-14 21:00:00,2026-11-14 14:53 UTC,"T < 50 F, RH > 60 %, Sky > 60 %",,0.0,,0.0,,0.0,,0.0,,0.0,,30.0,,,
 2026-11-15 21:00:00,2026-11-15 14:53 UTC,"T < 50 F, RH > 60 %, Sky > 60 %",,0.0,,0.0,,0.0,,0.0,,0.0,,,,,
 2026-11-16 21:00:00,2026-11-16 14:47 UTC,TdAI runs paused for the winter,,0.0,,0.0,,0.0,,0.0,,0.0,,,,,
-2026-11-17 21:00:00,2026-11-16 14:47 UTC,TdAI runs paused for the winter,,0.0,,0.0,,0.0,,0.0,,0.0,,,,,
+2026-11-17 21:00:00,2026-11-17 02:47 UTC,TdAI runs paused for the winter,,0.0,,0.0,,0.0,,0.0,,0.0,,,,,
+2026-11-18 21:00:00,2026-11-17 02:47 UTC,TdAI runs paused for the winter,,0.0,,0.0,,0.0,,0.0,,0.0,,,,,
